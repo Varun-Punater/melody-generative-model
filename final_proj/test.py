@@ -1,3 +1,5 @@
+import os
+import pickle
 from music21 import *
 import math
 from typing import List, Dict
@@ -12,13 +14,16 @@ mutex = Lock()
 
 NUM_SAMPLES = 0
 
+# to create the data dir
+PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+DATA_DIR = os.path.join(PARENT_DIR, 'data')
+
 def parse_xml(xml_file_paths: List[str], parsed_xml_files: List[stream.Score]):
     for index in tqdm(range(len(xml_file_paths))):
         s = converter.parse(xml_file_paths[index])
         mutex.acquire()
         parsed_xml_files.append(s)
         mutex.release()
-        
 
 
 def process_notes_so_far(notes_so_far: List[note.Note], chord_class: chord.Chord, note_chord_frequencies: Dict[str, Dict[str, int]]):
@@ -32,41 +37,35 @@ def process_notes_so_far(notes_so_far: List[note.Note], chord_class: chord.Chord
         note_chord_frequencies[note][chord] += 1
     notes_so_far = []
 
+
 def process_chord(chord: chord.Chord, chord_frequencies: Dict[str, int]):
     chord_name = f"{chord.root()} {chord.commonName}"
     if chord_name not in chord_frequencies:
         chord_frequencies[chord_name] = 0
     chord_frequencies[chord_name] += 1
 
-
-if __name__ == "__main__":
-
-    # s = converter.parse("/Users/aharhar/Documents/USC Senior Year/CSCI 467/final_proj/chord-melody-dataset/hey_jude/d.xml")
-
+def data_parsing():
     xml_file_paths = Path("../chord-melody-dataset/").glob('**/*.xml')
     xml_file_paths = [str(path) for path in xml_file_paths]
 
-    notes = ['C', 'C#', 'D-', 'D', 'D#', 'E-', 'E', 'F', 'F#', 'G-', 'G', 'G#', 'A-', 'A', 'A#', 'B-', 'B']
-
+    threads: List[Thread] = []
 
     NUM_SAMPLES = len(xml_file_paths)
     NUM_TRAIN = math.floor(NUM_SAMPLES * 0.7)
     NUM_DEV = math.floor(NUM_SAMPLES * 0.1)
-    NUM_TEST = NUM_SAMPLES - NUM_TRAIN - NUM_DEV
 
     NUM_THREADS = 10
 
     train_samples = xml_file_paths[0:NUM_TRAIN]
-    dev_samples = xml_file_paths[NUM_TRAIN:NUM_TRAIN+NUM_DEV]
-    test_samples = xml_file_paths[NUM_TRAIN+NUM_DEV:]
-
-    threads: List[Thread] = []
 
     num_files_per_process = math.ceil(len(train_samples) / NUM_THREADS)
     parsed_xml_files = []
 
-    for i in range(0, 10):
-        p = Thread(target=parse_xml, args=(train_samples[num_files_per_process*i:num_files_per_process*(i+1)], parsed_xml_files))
+    # for this object, we want to store
+
+    for i in range(0, NUM_THREADS):
+        p = Thread(target=parse_xml, args=(
+            train_samples[num_files_per_process*i:num_files_per_process*(i+1)], parsed_xml_files))
         p.start()
         threads.append(p)
 
@@ -77,6 +76,21 @@ if __name__ == "__main__":
 
     print("fully done")
 
+    # we want to store the parsed_xml_files list in the data dir
+    with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'wb') as f:
+        pickle.dump(parsed_xml_files, f)
+
+    print("saved to data")
+
+def data_processing():
+
+    notes = ['C', 'C#', 'D-', 'D', 'D#', 'E-', 'E', 'F',
+             'F#', 'G-', 'G', 'G#', 'A-', 'A', 'A#', 'B-', 'B']
+
+    parsed_xml_files = []
+    with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
+        parsed_xml_files = pickle.load(f)
+
     print(len(parsed_xml_files))
     for index, s in enumerate(parsed_xml_files):
         part = s.parts[0]
@@ -84,7 +98,7 @@ if __name__ == "__main__":
         for x in part:
             if isinstance(x, stream.Measure):
                 measures.append(x)
-        
+
         note_chord_frequencies = {}
         chord_frequencies = {}
 
@@ -100,20 +114,14 @@ if __name__ == "__main__":
                     # notes_so_far.append(datapoint.pitch)
                 elif isinstance(datapoint, chord.Chord):
                     print(F"CHORD: {datapoint.root()} {datapoint.commonName}")
-                    process_notes_so_far(notes_so_far, datapoint, note_chord_frequencies)
+                    process_notes_so_far(
+                        notes_so_far, datapoint, note_chord_frequencies)
                     process_chord(datapoint, chord_frequencies)
-        
-    
-    
-        
-    
-        
-   
-    # s.write('midi', fp='/Users/aharhar/Documents/USC Senior Year/CSCI 467/final_proj/chord-melody-dataset/hey_jude/d.mid')
 
-   
-    # first_two = s.measures(0, 30)
-    # first_two.show('text')
-    # print(len(first_two.parts[0]))
+if __name__ == "__main__":
 
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
+        data_parsing()
 
+    data_processing()
