@@ -19,14 +19,13 @@ PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 DATA_DIR = os.path.join(PARENT_DIR, 'data')
 
 def parse_xml(xml_file_paths: List[str], parsed_xml_files: List[stream.Score]):
-    for index in tqdm(range(len(xml_file_paths))):
+    for index in (range(len(xml_file_paths))): # removed tqdm as it was kinda buggy
         s = converter.parse(xml_file_paths[index])
         mutex.acquire()
         parsed_xml_files.append(s)
         mutex.release()
 
-
-def process_notes_so_far(notes_so_far: List[note.Note], chord_class: chord.Chord, note_chord_frequencies: Dict[str, Dict[str, int]]):
+def process_notes_so_far(notes_so_far: List[note.Note], chord_class: chord.Chord, note_chord_frequencies: Dict[str, Dict[str, int]]): 
     for note_class in notes_so_far:
         note = note_class.pitch.name
         chord = f"{chord_class.root()} {chord_class.commonName}"
@@ -37,50 +36,63 @@ def process_notes_so_far(notes_so_far: List[note.Note], chord_class: chord.Chord
         note_chord_frequencies[note][chord] += 1
     notes_so_far = []
 
-
 def process_chord(chord: chord.Chord, chord_frequencies: Dict[str, int]):
     chord_name = f"{chord.root()} {chord.commonName}"
     if chord_name not in chord_frequencies:
         chord_frequencies[chord_name] = 0
     chord_frequencies[chord_name] += 1
 
-def data_parsing():
-    xml_file_paths = Path("../chord-melody-dataset/").glob('**/*.xml')
-    xml_file_paths = [str(path) for path in xml_file_paths]
+def threaded_parse_xml(sample, partition_type):
 
     threads: List[Thread] = []
 
-    NUM_SAMPLES = len(xml_file_paths)
-    NUM_TRAIN = math.floor(NUM_SAMPLES * 0.7)
-    NUM_DEV = math.floor(NUM_SAMPLES * 0.1)
-
     NUM_THREADS = 10
 
-    train_samples = xml_file_paths[0:NUM_TRAIN]
-
-    num_files_per_process = math.ceil(len(train_samples) / NUM_THREADS)
+    num_files_per_process = math.ceil(len(sample) / NUM_THREADS)
     parsed_xml_files = []
 
     # for this object, we want to store
 
     for i in range(0, NUM_THREADS):
         p = Thread(target=parse_xml, args=(
-            train_samples[num_files_per_process*i:num_files_per_process*(i+1)], parsed_xml_files))
+            sample[num_files_per_process*i:num_files_per_process*(i+1)], parsed_xml_files))
         p.start()
         threads.append(p)
 
-    print("done")
+    print("")
+    print("started parsing for " + partition_type)
 
     for p in threads:
         p.join()
 
-    print("fully done")
+    print("")
+    print("done parsing with " + partition_type)
 
     # we want to store the parsed_xml_files list in the data dir
-    with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'wb') as f:
+    TARGET_DIR = os.path.join(DATA_DIR, partition_type + '_parsed_xml_files.pkl')
+    with open(TARGET_DIR, 'wb') as f:
         pickle.dump(parsed_xml_files, f)
 
-    print("saved to data")
+    print(partition_type + " saved to data")
+
+def data_parsing():
+    xml_file_paths = Path("../chord-melody-dataset/").glob('**/*.xml')
+    xml_file_paths = [str(path) for path in xml_file_paths]
+
+    NUM_SAMPLES = len(xml_file_paths)
+    NUM_TRAIN = math.floor(NUM_SAMPLES * 0.7)
+    NUM_DEV = math.floor(NUM_SAMPLES * 0.1)
+
+    ## only for training data
+    train_samples = xml_file_paths[0:NUM_TRAIN]
+    dev_samples = xml_file_paths[NUM_TRAIN:NUM_TRAIN+NUM_DEV]
+    test_samples = xml_file_paths[NUM_TRAIN+NUM_DEV:NUM_SAMPLES]
+
+    threaded_parse_xml(train_samples, 'training')
+    threaded_parse_xml(dev_samples, 'dev')
+    threaded_parse_xml(test_samples, 'test')
+
+    print("done with all")
 
 def data_processing():
 
