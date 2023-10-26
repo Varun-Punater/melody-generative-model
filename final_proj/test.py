@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     # s = converter.parse("/Users/aharhar/Documents/USC Senior Year/CSCI 467/final_proj/chord-melody-dataset/hey_jude/d.xml")
 
-    xml_file_paths = Path("/Users/aharhar/Documents/USC Senior Year/CSCI 467/final_proj/chord-melody-dataset/").glob('**/*.xml')
+    xml_file_paths = Path("../chord-melody-dataset/").glob('**/*.xml')
     xml_file_paths = [str(path) for path in xml_file_paths]
     measures: List[stream.Measure] = []
 
