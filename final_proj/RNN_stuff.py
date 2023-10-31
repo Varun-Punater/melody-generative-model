@@ -17,6 +17,7 @@ PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 DATA_DIR = os.path.join(PARENT_DIR, 'data')
 
 NUM_ITERS = 10
+LEARNING_RATE = 0.001
 
 def generate_json_data(xml_file_array, file_name):
 
@@ -114,7 +115,7 @@ def pre_processing():
 
     return
 
-def generate_tensors():
+def train_rnn():
 
     # we need to generate tensors for the data
 
@@ -122,7 +123,7 @@ def generate_tensors():
 
     # get the data from the json file
     data = []
-    with open(os.path.join(DATA_DIR, 'data.json')) as json_file:
+    with open(os.path.join(DATA_DIR, 'training_data.json')) as json_file:
         data = json.load(json_file)
 
     # get the vocab from the json file
@@ -209,7 +210,7 @@ def generate_tensors():
     loss_function = nn.CrossEntropyLoss()
 
     # we need to create the optimizer
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     print("----------starting training----------")
     # we need to train the model on the data
@@ -226,22 +227,9 @@ def generate_tensors():
     # we need to save the model
     save(model.state_dict(), os.path.join(DATA_DIR, 'model.pt'))
 
-    # try out the model on the input data and see what it outputs
-
-    model.eval()
-
-    test_tensor = notes_tensor[1].unsqueeze(0)
-
-    output = model(test_tensor)
-
-    # we need to convert the output to a chord by calculating the argmax
-    output_chord = torch.argmax(output, dim=1)
-    
-    print(vocab["chords"][output_chord])
-
     return
 
-def model_test():
+def test_rnn():
 
     # we need to test the model on the data
 
@@ -250,6 +238,51 @@ def model_test():
     model = MusicRNN(params)
     model.load_state_dict(torch.load(os.path.join(DATA_DIR, 'model.pt')))
     model.eval()
+
+    # load the test data from the json file
+    test_data = []
+    with open(os.path.join(DATA_DIR, 'test_data.json')) as json_file:
+        test_data = json.load(json_file)
+    
+    # load the vocab from the json file
+    vocab = {}
+    with open(os.path.join(DATA_DIR, 'vocab.json')) as json_file:
+        vocab = json.load(json_file)
+    
+    # we need to generate tensors for the data
+    test_notes_tensor = tensor([])
+    test_chords_tensor = tensor([])
+
+    for measure in tqdm(test_data):
+        
+        if len(measure["notes"]) == 0 or len(measure["chords"]) == 0:
+            continue
+
+        curr_notes_tensor = []
+        for note in measure["notes"]:
+            curr_notes_tensor.append(vocab["pitches"].index(note))
+        curr_notes_tensor = tensor(curr_notes_tensor)
+
+        # we need to pad the tensor to make it the same length as the longest tensor which has 16 notes
+        num__pitch_pads = 16 - len(curr_notes_tensor)
+        pitch_pads = [ vocab["pitches"].index("PAD") for i in range(num__pitch_pads)]
+        pitch_pads = tensor(pitch_pads)
+        curr_notes_tensor = torch.cat((curr_notes_tensor, pitch_pads), 0)
+
+        
+        curr_notes_tensor = curr_notes_tensor.unsqueeze(0)
+        test_notes_tensor = torch.cat((test_notes_tensor, curr_notes_tensor), 0)
+
+        model_output = model(curr_notes_tensor)
+
+        chord_index = torch.argmax(model_output)
+        chord = vocab["chords"][chord_index]
+
+        print("current notes:", measure["notes"])
+        print("actual chord:", measure["chords"][0])
+        print("predicted chord:", chord)
+
+        exit()
 
     # we need to load the data from the test file
 
@@ -261,6 +294,6 @@ if __name__ == "__main__":
     print("NUM_ITERS:", NUM_ITERS)
     print("")
 
-    pre_processing()
-    #generate_tensors()
-    #model_test()
+    #pre_processing()
+    #train_rnn()
+    test_rnn()
