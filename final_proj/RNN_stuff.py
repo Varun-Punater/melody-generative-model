@@ -18,14 +18,7 @@ DATA_DIR = os.path.join(PARENT_DIR, 'data')
 
 NUM_ITERS = 10
 
-def pre_processing():
-    
-    # take in the pickle data for training
-    print("----------------- LOADING DATA -----------------")
-    parsed_xml_files = []
-    with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
-        parsed_xml_files = pickle.load(f)
-    print("----------------- DONE LOADING -----------------")
+def generate_json_data(xml_file_array, file_name):
 
     # we need a set of all pitches and all chords
     pitches_vocab = set()
@@ -35,24 +28,15 @@ def pre_processing():
     pitches_vocab.add("PAD")
     chords_vocab.add("PAD")
 
-    # we need to save a json object with the information from each measure
-    # the json object will be an array of measures
-    # each measure will have an object called "notes" and an object called "chords"
-    # the "notes" object will be an array of the pitches in the measure (as strings)
-    # the "chords" object will be an array of the chords in the measure (as strings)
-
     data_json = []
 
-    print(len(parsed_xml_files))
-    for index, s in tqdm(enumerate(parsed_xml_files)):
+    print(len(xml_file_array))
+    for index, s in tqdm(enumerate(xml_file_array)):
         part = s.parts[0]
         measures: List[stream.Measure] = []
         for x in part:
             if isinstance(x, stream.Measure):
                 measures.append(x)
-
-        note_chord_frequencies = {}
-        chord_frequencies = {}
 
         #print(f"----------------- ANALYZING SONG {index} -----------------")
         for index, measure in enumerate(measures):
@@ -76,7 +60,8 @@ def pre_processing():
                     
                     #print(F"PITCH: {note_pitch}")
 
-                    pitches_vocab.add(note_pitch)
+                    if file_name == "training":
+                        pitches_vocab.add(note_pitch)
 
                     measure_json["notes"].append(note_pitch)
 
@@ -85,7 +70,8 @@ def pre_processing():
                     chord_string = str(datapoint.root()) + " " + str(datapoint.commonName)
                     chord_string = re.sub(r'\d+', '', chord_string)
 
-                    chords_vocab.add(chord_string)
+                    if file_name == "training":
+                        chords_vocab.add(chord_string)
 
                     measure_json["chords"].append(chord_string)
             
@@ -93,30 +79,40 @@ def pre_processing():
 
             
     # need to save the data_json as a json file
-    with open(os.path.join(DATA_DIR, 'data.json'), 'w') as outfile:
+    with open(os.path.join(DATA_DIR, file_name+'_data.json'), 'w') as outfile:
         json.dump(data_json, outfile)
+
+    if file_name == "training":
+        vocab_json = {}
+        vocab_json["pitches"] = list(pitches_vocab)
+        vocab_json["chords"] = list(chords_vocab)
+
+        with open(os.path.join(DATA_DIR, 'vocab.json'), 'w') as outfile:
+            json.dump(vocab_json, outfile)
+
+def pre_processing():
     
+    # take in the pickle data for training
+    print("----------------- PROCESSING DATA -----------------")
+    parsed_xml_files = []
+    with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
+        parsed_xml_files = pickle.load(f)
     
-    print("all pitches size:", len(pitches_vocab))
-    print("all chords size:", len(chords_vocab))
+    generate_json_data(parsed_xml_files, "training")
 
-    # create a json file with all the pitches and chords
-    # the json file will be an array with the pitches and chords as the elements
-    # save the pitches_vocab and chords_vocab as a json file
+    with open(os.path.join(DATA_DIR, 'dev_parsed_xml_files.pkl'), 'rb') as f:
+        parsed_xml_files = pickle.load(f)
 
-    vocab_json = {}
-    vocab_json["pitches"] = list(pitches_vocab)
-    vocab_json["chords"] = list(chords_vocab)
+    generate_json_data(parsed_xml_files, "dev")
 
-    with open(os.path.join(DATA_DIR, 'vocab.json'), 'w') as outfile:
-        json.dump(vocab_json, outfile)
+    with open(os.path.join(DATA_DIR, 'test_parsed_xml_files.pkl'), 'rb') as f:
+        parsed_xml_files = pickle.load(f)
 
+    generate_json_data(parsed_xml_files, "test")
 
-    # idea would be to create a json file with all the meaures and their notes and chords
+    print("----------------- FINISHED -----------------")
 
-    # we look at the reference notes in a given measure, and we then want respective chord/chords for that measure
-    # the loss will be the output of the model vs the reference chord/chords
-    # we can generate a different result for the first chord of a measure vs the second chord of a measure, if needed
+    return
 
 def generate_tensors():
 
@@ -232,13 +228,16 @@ def generate_tensors():
 
     # try out the model on the input data and see what it outputs
 
-    # model.eval()
+    model.eval()
 
-    # test_tensor = notes_tensor[1].unsqueeze(0)
+    test_tensor = notes_tensor[1].unsqueeze(0)
 
-    # output = model(test_tensor)
+    output = model(test_tensor)
+
+    # we need to convert the output to a chord by calculating the argmax
+    output_chord = torch.argmax(output, dim=1)
     
-    # print(output)
+    print(vocab["chords"][output_chord])
 
     return
 
@@ -246,8 +245,13 @@ def model_test():
 
     # we need to test the model on the data
 
-    # we need to load the saved model
+    # we need to load the saved model from the data dir called model.pt
+    params = MusicRNNParams()
+    model = MusicRNN(params)
+    model.load_state_dict(torch.load(os.path.join(DATA_DIR, 'model.pt')))
+    model.eval()
 
+    # we need to load the data from the test file
 
     return
 
@@ -257,6 +261,6 @@ if __name__ == "__main__":
     print("NUM_ITERS:", NUM_ITERS)
     print("")
 
-    #pre_processing()
-    generate_tensors()
+    pre_processing()
+    #generate_tensors()
     #model_test()
