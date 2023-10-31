@@ -7,6 +7,8 @@ from multiprocessing import Process
 from threading import Thread, Lock
 from tqdm import tqdm
 
+from naive_bayes import NaiveBayes
+
 
 mutex = Lock()
 
@@ -18,25 +20,6 @@ def parse_xml(xml_file_paths: List[str], parsed_xml_files: List[stream.Score]):
         mutex.acquire()
         parsed_xml_files.append(s)
         mutex.release()
-        
-
-
-def process_notes_so_far(notes_so_far: List[note.Note], chord_class: chord.Chord, note_chord_frequencies: Dict[str, Dict[str, int]]):
-    for note_class in notes_so_far:
-        note = note_class.pitch.name
-        chord = f"{chord_class.root()} {chord_class.commonName}"
-        if note not in note_chord_frequencies:
-            note_chord_frequencies[note] = {}
-        if chord not in note_chord_frequencies[note]:
-            note_chord_frequencies[note][chord] = 0
-        note_chord_frequencies[note][chord] += 1
-    notes_so_far = []
-
-def process_chord(chord: chord.Chord, chord_frequencies: Dict[str, int]):
-    chord_name = f"{chord.root()} {chord.commonName}"
-    if chord_name not in chord_frequencies:
-        chord_frequencies[chord_name] = 0
-    chord_frequencies[chord_name] += 1
 
 
 if __name__ == "__main__":
@@ -70,38 +53,56 @@ if __name__ == "__main__":
         p.start()
         threads.append(p)
 
-    print("done")
-
     for p in threads:
         p.join()
 
-    print("fully done")
 
-    print(len(parsed_xml_files))
-    for index, s in enumerate(parsed_xml_files):
-        part = s.parts[0]
-        measures: List[stream.Measure] = []
-        for x in part:
-            if isinstance(x, stream.Measure):
-                measures.append(x)
+    print("finally done")
+    
+    nb = NaiveBayes(parsed_xml_files)
+    nb.train()
+    s = converter.parse(dev_samples[18])
+    # nb.predict_on_song(s)
+    parsed = [s]
+    # nb = NaiveBayes(parsed)
+    # nb.train()
+    # dev_samples[11].show('text')
+    nb.predict_on_song(s)
+    print(dev_samples[18])
+
+
+    # unique_chord_types = set()
+    # for index, s in enumerate(parsed_xml_files):
+    #     part = s.parts[0]
+    #     measures: List[stream.Measure] = []
+    #     for x in part:
+    #         if isinstance(x, stream.Measure):
+    #             measures.append(x)
         
-        note_chord_frequencies = {}
-        chord_frequencies = {}
 
-        print(f"----------------- ANALYZING SONG {index} -----------------")
+    #     for index, measure in enumerate(measures):
+    #         for datapoint in measure:
+    #             if isinstance(datapoint, chord.Chord):
+    #                 unique_chord_types.add(f"{datapoint.commonName}")
 
-        for index, measure in enumerate(measures):
-            print(F"---------------- MEASURE {index} ----------------")
-            notes_so_far = []
-            for datapoint in measure:
-                if isinstance(datapoint, note.Note):
-                    notes_so_far.append(datapoint)
-                    print(F"PITCH: {datapoint.pitch}")
-                    # notes_so_far.append(datapoint.pitch)
-                elif isinstance(datapoint, chord.Chord):
-                    print(F"CHORD: {datapoint.root()} {datapoint.commonName}")
-                    process_notes_so_far(notes_so_far, datapoint, note_chord_frequencies)
-                    process_chord(datapoint, chord_frequencies)
+    
+        # note_chord_frequencies = {}
+        # chord_frequencies = {}
+
+        # print(f"----------------- ANALYZING SONG {index} -----------------")
+
+        # for index, measure in enumerate(measures):
+        #     print(F"---------------- MEASURE {index} ----------------")
+        #     notes_so_far = []
+        #     for datapoint in measure:
+        #         if isinstance(datapoint, note.Note):
+        #             notes_so_far.append(datapoint)
+        #             print(F"PITCH: {datapoint.pitch}")
+        #             # notes_so_far.append(datapoint.pitch)
+        #         elif isinstance(datapoint, chord.Chord):
+        #             print(F"CHORD: {datapoint.root()} {datapoint.commonName}")
+        #             process_notes_so_far(notes_so_far, datapoint, note_chord_frequencies)
+        #             process_chord(datapoint, chord_frequencies)
         
     
     
@@ -115,5 +116,4 @@ if __name__ == "__main__":
     # first_two = s.measures(0, 30)
     # first_two.show('text')
     # print(len(first_two.parts[0]))
-
 
