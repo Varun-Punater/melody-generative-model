@@ -9,8 +9,6 @@ from multiprocessing import Process
 from threading import Thread, Lock
 from tqdm import tqdm
 
-from naive_bayes import NaiveBayes
-
 
 mutex = Lock()
 
@@ -21,7 +19,7 @@ PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 DATA_DIR = os.path.join(PARENT_DIR, 'data')
 
 def parse_xml(xml_file_paths: List[str], parsed_xml_files: List[stream.Score]):
-    for index in (range(len(xml_file_paths))): # removed tqdm as it was kinda buggy
+    for index in tqdm((range(len(xml_file_paths)))):
         s = converter.parse(xml_file_paths[index])
         mutex.acquire()
         parsed_xml_files.append(s)
@@ -85,16 +83,11 @@ def data_processing():
              'F#', 'G-', 'G', 'G#', 'A-', 'A', 'A#', 'B-', 'B']
 
     parsed_xml_files = []
+    print("loading pickle files for training")
     with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
 
     print(len(parsed_xml_files))
-    for index, s in enumerate(parsed_xml_files):
-        part = s.parts[0]
-        measures: List[stream.Measure] = []
-        for x in part:
-            if isinstance(x, stream.Measure):
-                measures.append(x)
 
 if __name__ == "__main__":
 

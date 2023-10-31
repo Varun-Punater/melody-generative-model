@@ -10,6 +10,7 @@ class NaiveBayes():
         self.scores = parsed_xml_files
         self.chord_note_frequencies: Dict[str, Dict[str, int]] = {}
         self.chord_frequencies: Dict[str, int] = {}
+        self.chord_key_frequencies: Dict[str, Dict[str, int]] = {}
         self.lambda_ = lambda_
         self.unique_notes = set()
 
