@@ -3,4 +3,5 @@ tqdm
 torch
 pydantic
 pickle
+numpy
 
