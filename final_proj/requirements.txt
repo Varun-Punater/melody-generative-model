@@ -2,6 +2,5 @@ music21
 tqdm
 torch
 pydantic
-pickle
 numpy
-
+regex
