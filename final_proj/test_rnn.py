@@ -20,6 +20,7 @@ PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
 
+
 NUM_EPOCHS = 10000
 BATCH_SIZE = 500
 LEARNING_RATE = 0.05
@@ -339,6 +340,7 @@ def train(num_measures: int):
             optimizer.zero_grad()   # Reset the gradients to zero
                                     # Recall how backpropagation works---gradients are initialized to zero and then accumulated
                                     # So we need to reset to zero before running on a new batch!
+
             logits = model(notes_batch) # tensor of size (B, C), each row is the logits (pre-softmax scores) for the C classes
             loss = loss_function(logits, chords_batch) # Compute the loss of the model output compared to true labels
             loss.backward() # Run backpropagation to compute gradients
@@ -376,6 +378,7 @@ def train(num_measures: int):
     print(f"Best dev accuracy: {best_dev_acc} at epoch {best_epoch}")
     save(model.state_dict(), os.path.join(DATA_DIR, 'best_model_2.pt'))
 
+        
     
 
 
