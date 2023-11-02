@@ -20,9 +20,9 @@ PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
 
-NUM_EPOCHS = 350
-BATCH_SIZE = 500
-LEARNING_RATE = 0.005
+NUM_EPOCHS = 10000 # 500 good
+BATCH_SIZE = 500 # 500 good
+LEARNING_RATE = 0.05
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -320,7 +320,7 @@ def train(num_measures: int):
                                     # Recall how backpropagation works---gradients are initialized to zero and then accumulated
                                     # So we need to reset to zero before running on a new batch!
             logits = model(notes_tensor) # tensor of size (B, C), each row is the logits (pre-softmax scores) for the C classes
-            logits = logits.squeeze(0)
+            # logits = logits.squeeze(0)
             loss = loss_function(logits, chords_tensor) # Compute the loss of the model output compared to true labels
             loss.backward() # Run backpropagation to compute gradients
             optimizer.step() # Take a SGD step
@@ -337,6 +337,7 @@ def train(num_measures: int):
         print(f"Train accuracy: {train_acc}")
         # model.eval() # Set model to "evaluation mode", e.g. turns dropout off if you have dropout layers
 
+        
     
 
 
