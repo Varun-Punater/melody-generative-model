@@ -1,4 +1,4 @@
 chord-melody-dataset
 data
 .DS_Store
-models/__pycache__
+final_proj/models/__pycache__
