@@ -20,9 +20,9 @@ PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
 
-NUM_EPOCHS = 350
+NUM_EPOCHS = 10000
 BATCH_SIZE = 500
-LEARNING_RATE = 0.005
+LEARNING_RATE = 0.05
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -217,7 +217,7 @@ def create_tensors(partition_type):
     print("----------------- Creating Tensors -----------------")
 
     data = []
-    with open(os.path.join(DATA_DIR, 'train.json')) as json_file:
+    with open(os.path.join(DATA_DIR, f'{partition_type}.json')) as json_file:
         data = json.load(json_file)
 
     # get the vocab from the json file
@@ -240,6 +240,21 @@ def create_tensors(partition_type):
 
         notes = measure["notes"]
         chords = measure["chords"]
+
+        # we need to convert the chords to indices
+        curr_chords_tensor = []
+        curr_chord = chords[0]
+        try:
+            curr_chords_tensor.append(chords_vocab.index(curr_chord))
+        except Exception as e:
+            continue
+
+        curr_chords_tensor = tensor(curr_chords_tensor)
+
+        # one hot encoding for the chords
+        curr_chords_tensor = nn.functional.one_hot(curr_chords_tensor, num_classes=len(chords_vocab))
+
+        chords_tensor = torch.cat((chords_tensor, curr_chords_tensor), 0)
         
         # we need to convert the notes and chords to indices
         curr_notes_tensor = []
@@ -252,17 +267,6 @@ def create_tensors(partition_type):
         # add the current measure notes to the overall notes
         notes_tensor = torch.cat((notes_tensor, curr_notes_tensor), 0)
 
-
-        curr_chords_tensor = []
-        curr_chord = chords[0]
-        curr_chords_tensor.append(chords_vocab.index(curr_chord))
-        curr_chords_tensor = tensor(curr_chords_tensor)
-
-        # one hot encoding for the chords
-        curr_chords_tensor = nn.functional.one_hot(curr_chords_tensor, num_classes=len(chords_vocab))
-
-        chords_tensor = torch.cat((chords_tensor, curr_chords_tensor), 0)
-
     # chords_tensor.unsqueeze(0)
 
     notes_tensor = notes_tensor.type(torch.LongTensor)
@@ -273,7 +277,11 @@ def create_tensors(partition_type):
 
 def train(num_measures: int):
     start_time = time.time()
-    # load the tensors
+    # load the training tensors
+
+    print("----------------- Loading Training Tensors -----------------")
+    print("")
+
     notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt'))
     chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt'))
 
@@ -284,6 +292,17 @@ def train(num_measures: int):
     notes_vocab = []
     with open(os.path.join(DATA_DIR, 'pitches_vocab.json')) as json_file:
         notes_vocab = json.load(json_file)
+
+    print("----------------- Done Loading Training Tensors -----------------")
+    print("")
+
+    print("----------------- Loading Dev Tensors -----------------")
+    print("")
+    dev_notes_tensor = torch.load(os.path.join(DATA_DIR, 'dev_notes_tensor.pt'))
+    dev_chords_tensor = torch.load(os.path.join(DATA_DIR, 'dev_chords_tensor.pt'))
+
+    print("----------------- Done Loading Dev Tensors -----------------")
+
 
     # create the model 
     params = MusicRNNParams(
@@ -300,7 +319,8 @@ def train(num_measures: int):
     
     train_dataset = [(notes_tensor[i], chords_tensor[i]) for i in range(len(chords_tensor))]
 
-    train_dataset = train_dataset[:num_measures]
+    if num_measures != -1:
+        train_dataset = train_dataset[:num_measures]
 
     best_dev_acc = -1
     best_checkpoint = None
@@ -313,15 +333,14 @@ def train(num_measures: int):
         # Training loop
         model.train() # Set model to "training mode", e.g. turns dropout on if you have dropout layers
         for batch in DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True):
-            notes_tensor, chords_tensor = batch # unpack batch, which is a tuple (x_batch, y_batch)
+            notes_batch, chords_batch = batch # unpack batch, which is a tuple (x_batch, y_batch)
                                                 # x_batch is tensor of size (B, D)
                                                 # y_batch is tensor of size (B, X)
             optimizer.zero_grad()   # Reset the gradients to zero
                                     # Recall how backpropagation works---gradients are initialized to zero and then accumulated
                                     # So we need to reset to zero before running on a new batch!
-            logits = model(notes_tensor) # tensor of size (B, C), each row is the logits (pre-softmax scores) for the C classes
-            logits = logits.squeeze(0)
-            loss = loss_function(logits, chords_tensor) # Compute the loss of the model output compared to true labels
+            logits = model(notes_batch) # tensor of size (B, C), each row is the logits (pre-softmax scores) for the C classes
+            loss = loss_function(logits, chords_batch) # Compute the loss of the model output compared to true labels
             loss.backward() # Run backpropagation to compute gradients
             optimizer.step() # Take a SGD step
                              # Note that when we created the optimizer, we passed in model.parameters()
@@ -329,13 +348,33 @@ def train(num_measures: int):
                              # optimizer.step() iterates over this list and does an SGD update to each parameter
             # Compute running count of number of training examples correct
             preds = torch.argmax(logits, dim=1)
-            chords_tensor_preds = torch.argmax(chords_tensor, dim=1)
+            chords_tensor_preds = torch.argmax(chords_batch, dim=1)
             train_num_correct += torch.sum(preds == chords_tensor_preds).item()
         
         # Evaluate train and dev accuracy at the end of each epoch
         train_acc = train_num_correct / len(train_dataset)
-        print(f"Train accuracy: {train_acc}")
-        # model.eval() # Set model to "evaluation mode", e.g. turns dropout off if you have dropout layers
+        model.eval() # Set model to "eval mode", e.g. turns dropout off if you have dropout layers.
+        with torch.no_grad(): # Don't allocate memory for storing gradients, more efficient when not training
+            dev_logits = model(dev_notes_tensor)
+            dev_preds = torch.argmax(dev_logits, dim=1)
+            dev_chords_preds = torch.argmax(dev_chords_tensor, dim=1)
+            dev_num_correct = torch.sum(dev_preds == dev_chords_preds).item()
+            dev_acc = dev_num_correct / len(dev_chords_tensor)
+            if dev_acc > best_dev_acc:
+                best_dev_acc = dev_acc
+                best_checkpoint = model.state_dict()
+                best_epoch = i
+        print(f"Epoch {i: < 2}: train_acc={train_acc}, dev_acc={dev_acc}")
+        
+    print("-------------- Done Training --------------")
+    print("")
+    print("-------------- Saving Best Model --------------")
+    print("")
+    model.load_state_dict(best_checkpoint)
+    end_time = time.time()
+    print(f"Total time: {end_time - start_time:.2f} seconds")
+    print(f"Best dev accuracy: {best_dev_acc} at epoch {best_epoch}")
+    save(model.state_dict(), os.path.join(DATA_DIR, 'best_model_2.pt'))
 
     
 
@@ -346,9 +385,9 @@ if __name__ == "__main__":
     # pre_process()
     # clean_json_train_data() # i forgot to remove numbers originally... oops
     # clean_json_vocab_data() # i forgot to remove numbers originally... oops
-    # create_tensors('train')
+    # create_tensors('dev')
     # total of 112329 measures
-    train(10000)
+    train(-1)
     
     
 
