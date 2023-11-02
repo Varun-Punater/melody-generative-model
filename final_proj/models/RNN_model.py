@@ -4,8 +4,8 @@ import torch
 
 class MusicRNNParams(BaseModel):
     vocab_dim: int = 23 # size of vocab along with PAD token
-    embedding_dim: int = 23
-    hidden_dim: int = 32
+    embedding_dim: int = 64 # used to be 23
+    hidden_dim: int = 512 # used to be 64
     num_layers: int = 1
     chord_dim: int = 205 # size of vocab along with PAD token
     chord_per_measure: int = 2
@@ -38,8 +38,7 @@ class MusicRNN(nn.Module):
             nn.Linear(
                 in_features=params.hidden_dim,
                 out_features=params.chord_dim
-            ), 
-            nn.Softmax(dim=1)
+            )
         )
 
     def forward(self, x):
