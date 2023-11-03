@@ -31,6 +31,9 @@ def parse_xml(xml_file_paths: List[str], parsed_xml_files: List[stream.Score]):
 
 def threaded_parse_xml(sample, partition_type):
 
+    PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    DATA_DIR = os.path.join(PARENT_DIR, 'data')
+
     threads: List[Thread] = []
 
     NUM_THREADS = 10
