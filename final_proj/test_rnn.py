@@ -15,15 +15,18 @@ from torch.utils.data import DataLoader
 import torch
 from models.RNN_model import MusicRNNParams, MusicRNN
 import time
+from threading import Thread, Lock
+
+# signaling_mutex = Lock()
+# signal = 0
 
 PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
 
-
-NUM_EPOCHS = 10000
-BATCH_SIZE = 500
-LEARNING_RATE = 0.05
+NUM_EPOCHS = 100
+BATCH_SIZE = 200
+LEARNING_RATE = 0.1
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -304,6 +307,8 @@ def train(num_measures: int):
 
     print("----------------- Done Loading Dev Tensors -----------------")
 
+    # global signal
+
 
     # create the model 
     params = MusicRNNParams(
@@ -311,6 +316,15 @@ def train(num_measures: int):
         chord_dim = len(chords_vocab)
     )
     model = MusicRNN(params)
+
+    print("----------------- Hyperparameters -----------------")
+    print("")
+    print(f"Number of epochs: {NUM_EPOCHS}")
+    print(f"Batch size: {BATCH_SIZE}")
+    print(f"Learning rate: {LEARNING_RATE}")
+    print("")
+    print(f"embedding_dim: {params.embedding_dim}")
+    print(f"hidden_dim: {params.hidden_dim}")
 
     # loss function
     loss_function = nn.CrossEntropyLoss()
@@ -327,8 +341,18 @@ def train(num_measures: int):
     best_checkpoint = None
     best_epoch = -1
 
+    # for early stopping
+    last_integer_accuracy_in_percent = -1
+    count_epochs = 0
+
     print("-------------- Training --------------")
     for i in range(NUM_EPOCHS):
+        # signaling_mutex.acquire()
+        # if signal == 1:
+        #     signaling_mutex.release()
+        #     break
+        # signaling_mutex.release()
+
         train_num_correct = 0
 
         # Training loop
@@ -367,6 +391,13 @@ def train(num_measures: int):
                 best_checkpoint = model.state_dict()
                 best_epoch = i
         print(f"Epoch {i: < 2}: train_acc={train_acc}, dev_acc={dev_acc}")
+        if last_integer_accuracy_in_percent == int(train_acc * 100):
+            count_epochs += 1
+        else:
+            count_epochs = 0
+        if count_epochs >= 15:
+            break
+        last_integer_accuracy_in_percent = int(train_acc * 100)
         
     print("-------------- Done Training --------------")
     print("")
@@ -376,9 +407,69 @@ def train(num_measures: int):
     end_time = time.time()
     print(f"Total time: {end_time - start_time:.2f} seconds")
     print(f"Best dev accuracy: {best_dev_acc} at epoch {best_epoch}")
-    save(model.state_dict(), os.path.join(DATA_DIR, 'best_model_2.pt'))
+    save(model.state_dict(), os.path.join(DATA_DIR, 'best_model_10.pt'))
 
+    # signaling_mutex.acquire()
+    # signal = 1
+    # signaling_mutex.release()
+    
+
+def evaluate():
+    print("----------------- Loading Testing Tensors -----------------")
+    print("")
+
+    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt'))
+    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt'))
+
+    chords_vocab = []
+    with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
+        chords_vocab = json.load(json_file)
+
+    notes_vocab = []
+    with open(os.path.join(DATA_DIR, 'pitches_vocab.json')) as json_file:
+        notes_vocab = json.load(json_file)
+
+    print("----------------- Done Loading Testing Tensors -----------------")
+    print("")
+
+    # create model
+    params = MusicRNNParams(
+        vocab_dim = len(notes_vocab),
+        chord_dim = len(chords_vocab)
+    )
+    model = MusicRNN(params)
+
+    # load model
+    model.load_state_dict(torch.load(os.path.join(DATA_DIR, 'best_model_10.pt')))
+    model.eval()
+
+    logits = model(notes_tensor)
+    preds = torch.argmax(logits, dim=1)
+    chords_tensor_preds = torch.argmax(chords_tensor, dim=1)
+    train_num_correct = torch.sum(preds == chords_tensor_preds).item()
+
+    accuracy = train_num_correct / len(chords_tensor)
+
+    print(f"accuracy: {accuracy}")
+
+
+
+# def signal_handler():
+#     global signal
+#     while (1):
+#         signaling_mutex.acquire()
+#         if signal == 1:
+#             signaling_mutex.release()
+#             break
+#         signaling_mutex.release()
+#         val = input()
+#         if val == 'q' or val == 'quit':
+#             signaling_mutex.acquire()
+#             signal = 1
+#             signaling_mutex.release()
+#             break
         
+
     
 
 
@@ -388,10 +479,9 @@ if __name__ == "__main__":
     # pre_process()
     # clean_json_train_data() # i forgot to remove numbers originally... oops
     # clean_json_vocab_data() # i forgot to remove numbers originally... oops
-    # create_tensors('dev')
+    # create_tensors('test')
     # total of 112329 measures
-    train(-1)
-    
+    evaluate()
     
 
 
