@@ -506,7 +506,9 @@ if __name__ == "__main__":
     GAMMA = args.ga
 
     if args.m == 'pre':
-        data_parsing()
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+            data_parsing()
         pre_process()
     elif args.m == 'create':
         create_tensors('train')
