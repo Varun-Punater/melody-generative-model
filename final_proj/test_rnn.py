@@ -457,7 +457,7 @@ def evaluate():
     model = MusicRNN(params)
 
     # load model
-    model.load_state_dict(torch.load(os.path.join(DATA_DIR, 'best_model_10.pt')))
+    model.load_state_dict(torch.load(os.path.join(DATA_DIR, 'best_model_2.pt')))
     model.eval()
 
     logits = model(notes_tensor)
@@ -506,8 +506,8 @@ if __name__ == "__main__":
     GAMMA = args.ga
 
     if args.m == 'pre':
-        if not os.path.exists(DATA_DIR):
-            os.makedirs(DATA_DIR)
+        if not os.path.exists(OG_DATA_DIR):
+            os.makedirs(OG_DATA_DIR)
             data_parsing()
         pre_process()
     elif args.m == 'create':
