@@ -19,6 +19,7 @@ import torch
 from models.LSTM_model import MusicRNNParams, MusicRNN
 import time
 from threading import Thread, Lock
+from test import data_parsing
 
 # signaling_mutex = Lock()
 # signal = 0
@@ -505,6 +506,7 @@ if __name__ == "__main__":
     GAMMA = args.ga
 
     if args.m == 'pre':
+        data_parsing()
         pre_process()
     elif args.m == 'create':
         create_tensors('train')
