@@ -9,11 +9,13 @@ import regex as re
 import json
 from torch import nn
 from torch import optim
+import torch.optim.lr_scheduler as lr_scheduler
 from torch import tensor
 from torch import save
 from torch.utils.data import DataLoader
 import torch
-from models.RNN_model import MusicRNNParams, MusicRNN
+# from models.RNN_model import MusicRNNParams, MusicRNN
+from models.LSTM_model import MusicRNNParams, MusicRNN
 import time
 
 PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
@@ -21,9 +23,12 @@ OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
 
 
-NUM_EPOCHS = 10000
-BATCH_SIZE = 500
-LEARNING_RATE = 0.05
+NUM_EPOCHS = 25
+BATCH_SIZE = 100
+LEARNING_RATE = 5 #0.05 earlier for the model
+M0MTM = 0.1 # set to 0 for the default
+DMPNG = 0 # set to 0 for the default
+GAMMA = 0.9
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -315,8 +320,12 @@ def train(num_measures: int):
     # loss function
     loss_function = nn.CrossEntropyLoss()
 
-    # optimizer
-    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE)
+    # optimizer option 1: SGD with or without scheduling, with or without momentum
+    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=M0MTM, dampening=DMPNG)
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=GAMMA)
+
+    # optimizer option 2: Adam with weight decay
+    # optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=0.0001)
     
     train_dataset = [(notes_tensor[i], chords_tensor[i]) for i in range(len(chords_tensor))]
 
@@ -352,6 +361,8 @@ def train(num_measures: int):
             preds = torch.argmax(logits, dim=1)
             chords_tensor_preds = torch.argmax(chords_batch, dim=1)
             train_num_correct += torch.sum(preds == chords_tensor_preds).item()
+
+        scheduler.step() # Update the learning rate
         
         # Evaluate train and dev accuracy at the end of each epoch
         train_acc = train_num_correct / len(train_dataset)
