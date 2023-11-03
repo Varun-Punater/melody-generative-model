@@ -1,4 +1,5 @@
 import os
+import argparse
 from pathlib import Path
 import pickle
 from music21 import *
@@ -27,12 +28,12 @@ OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
 
 
-NUM_EPOCHS = 25
+NUM_EPOCHS = 1000
 BATCH_SIZE = 100
-LEARNING_RATE = 5 #0.05 earlier for the model
+LEARNING_RATE = 0.1 #0.05 earlier for the model
 M0MTM = 0.1 # set to 0 for the default
 DMPNG = 0 # set to 0 for the default
-GAMMA = 0.9
+GAMMA = 0.999
 
 
 def get_measures_from_score(score: stream.Score):
@@ -483,16 +484,48 @@ def evaluate():
         
 
 if __name__ == "__main__":
+
+    # we need to add a way to use comand line options
+    parser = argparse.ArgumentParser(description='Hyperparameters and mode for the model.')
+    parser.add_argument('--mode', type=str, required=True, choices=['pre', 'create', 'train', 'eval'], help='Mode to run')
+    parser.add_argument('--E', type=int, default=1000, help='Number of epochs')
+    parser.add_argument('--B', type=int, default=100, help='Batch size')
+    parser.add_argument('--L', type=float, default=0.1, help='Learning rate')
+    parser.add_argument('--mu', type=float, default=0.1, help='Momentum')
+    parser.add_argument('--gamma', type=float, default=0.999, help='Gamma')
+
+    args = parser.parse_args()
+
+    NUM_EPOCHS = args.E
+    BATCH_SIZE = args.B
+    LEARNING_RATE = args.L
+    M0MTM = args.mu
+    GAMMA = args.gamma
+
+    if args.mode == 'pre':
+        pre_process()
+    elif args.mode == 'create':
+        create_tensors('test')
+        create_tensors('dev')
+    elif args.mode == 'train':
+        # print the hyperparameters
+        print("----------------- Hyperparameters -----------------")
+        print("")
+        print(f"Number of epochs: {NUM_EPOCHS}")
+        print(f"Batch size: {BATCH_SIZE}")
+        print(f"Learning rate: {LEARNING_RATE}")
+        print(f"Momentum: {M0MTM}")
+        print(f"Gamma: {GAMMA}")
+        print("")
+        print("----------------- Starting Training -----------------")
+        train(-1)
+    elif args.mode == 'eval':
+        evaluate()
+    
     # sample_pre_process() # use this if you want to train model on a smaller sample
     # pre_process()
     # clean_json_train_data() # i forgot to remove numbers originally... oops
     # clean_json_vocab_data() # i forgot to remove numbers originally... oops
     # create_tensors('test')
     # total of 112329 measures
-    evaluate()
-    
-
-
-
-        
-
+    # evaluate()
