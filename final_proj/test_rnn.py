@@ -502,13 +502,13 @@ if __name__ == "__main__":
     M0MTM = args.mu
     GAMMA = args.ga
 
-    if args.mode == 'pre':
+    if args.m == 'pre':
         pre_process()
-    elif args.mode == 'create':
+    elif args.m == 'create':
         create_tensors('train')
         create_tensors('test')
         create_tensors('dev')
-    elif args.mode == 'train':
+    elif args.m == 'train':
         # print the hyperparameters
         print("----------------- Hyperparameters -----------------")
         print("")
@@ -520,7 +520,7 @@ if __name__ == "__main__":
         print("")
         print("----------------- Starting Training -----------------")
         train(-1)
-    elif args.mode == 'eval':
+    elif args.m == 'eval':
         evaluate()
     
     # sample_pre_process() # use this if you want to train model on a smaller sample
