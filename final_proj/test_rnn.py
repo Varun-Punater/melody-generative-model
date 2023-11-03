@@ -487,12 +487,12 @@ if __name__ == "__main__":
 
     # we need to add a way to use comand line options
     parser = argparse.ArgumentParser(description='Hyperparameters and mode for the model.')
-    parser.add_argument('--mode', type=str, required=True, choices=['pre', 'create', 'train', 'eval'], help='Mode to run')
-    parser.add_argument('--E', type=int, default=1000, help='Number of epochs')
-    parser.add_argument('--B', type=int, default=100, help='Batch size')
-    parser.add_argument('--L', type=float, default=0.1, help='Learning rate')
-    parser.add_argument('--mu', type=float, default=0.1, help='Momentum')
-    parser.add_argument('--gamma', type=float, default=0.999, help='Gamma')
+    parser.add_argument('-m', type=str, required=True, choices=['pre', 'create', 'train', 'eval'], help='Mode to run')
+    parser.add_argument('-E', type=int, default=1000, help='Number of epochs')
+    parser.add_argument('-B', type=int, default=100, help='Batch size')
+    parser.add_argument('-L', type=float, default=0.01, help='Learning rate')
+    parser.add_argument('-mu', type=float, default=0.0, help='Momentum')
+    parser.add_argument('-ga', type=float, default=1, help='Gamma')
 
     args = parser.parse_args()
 
@@ -505,6 +505,7 @@ if __name__ == "__main__":
     if args.mode == 'pre':
         pre_process()
     elif args.mode == 'create':
+        create_tensors('train')
         create_tensors('test')
         create_tensors('dev')
     elif args.mode == 'train':
