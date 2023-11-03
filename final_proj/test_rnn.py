@@ -500,7 +500,7 @@ if __name__ == "__main__":
     BATCH_SIZE = args.B
     LEARNING_RATE = args.L
     M0MTM = args.mu
-    GAMMA = args.gamma
+    GAMMA = args.ga
 
     if args.mode == 'pre':
         pre_process()
