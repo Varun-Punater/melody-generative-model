@@ -357,6 +357,8 @@ def train(num_measures: int):
     last_integer_accuracy_in_percent = -1
     count_epochs = 0
 
+    print(len(train_dataset))
+
     print("-------------- Training --------------")
     for i in range(NUM_EPOCHS):
         # signaling_mutex.acquire()
