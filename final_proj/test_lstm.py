@@ -224,8 +224,8 @@ def train(num_measures: int):
     print("----------------- Loading Training Tensors -----------------")
     print("")
 
-    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt'))
-    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt'))
+    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt')).to(DEVICE)
+    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt')).to(DEVICE)
 
     chords_vocab = []
     with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
@@ -240,8 +240,8 @@ def train(num_measures: int):
 
     print("----------------- Loading Dev Tensors -----------------")
     print("")
-    dev_notes_tensor = torch.load(os.path.join(DATA_DIR, 'dev_notes_tensor.pt'))
-    dev_chords_tensor = torch.load(os.path.join(DATA_DIR, 'dev_chords_tensor.pt'))
+    dev_notes_tensor = torch.load(os.path.join(DATA_DIR, 'dev_notes_tensor.pt')).to(DEVICE)
+    dev_chords_tensor = torch.load(os.path.join(DATA_DIR, 'dev_chords_tensor.pt')).to(DEVICE)
 
     print("----------------- Done Loading Dev Tensors -----------------")
 
@@ -253,7 +253,7 @@ def train(num_measures: int):
         vocab_dim = len(notes_vocab),
         chord_dim = len(chords_vocab)
     )
-    model = MusicRNN(params)
+    model = MusicRNN(params).to(DEVICE)
 
     print("----------------- Hyperparameters -----------------")
     print("")
@@ -364,8 +364,8 @@ def evaluate():
     print("----------------- Loading Testing Tensors -----------------")
     print("")
 
-    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt'))
-    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt'))
+    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt')).to(DEVICE)
+    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt')).to(DEVICE)
 
     chords_vocab = []
     with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
@@ -383,7 +383,8 @@ def evaluate():
         vocab_dim = len(notes_vocab),
         chord_dim = len(chords_vocab)
     )
-    model = MusicRNN(params)
+    
+    model = MusicRNN(params).to(DEVICE)
 
     # load model
     model.load_state_dict(torch.load(os.path.join(DATA_DIR, SAVEFILE_NAME)))

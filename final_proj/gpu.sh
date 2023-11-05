@@ -10,8 +10,9 @@
 #SBATCH --time=1:00:00
 
 module purge
-module spider cuda
-module spider cudnn
+module load gcc/11.3.0
+module load cuda/11.6.2
+module load cudnn/8.4.0.27-11.6
 module load nvhpc/22.11
 eval "$(conda shell.bash hook)"
 conda activate 467
