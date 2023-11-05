@@ -15,7 +15,7 @@ from torch import tensor
 from torch import save
 from torch.utils.data import DataLoader
 import torch
-from models.RNN_model import MusicRNNParams, MusicRNN
+from models.LSTM_model import MusicRNNParams, MusicRNN
 import time
 from threading import Thread, Lock
 from test import data_parsing
@@ -24,8 +24,10 @@ from test import data_parsing
 # signal = 0
 
 PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
-OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
+PARSING_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 NUM_EPOCHS = 1000
 BATCH_SIZE = 100
@@ -34,7 +36,8 @@ M0MTM = 0.1 # set to 0 for the default
 DMPNG = 0 # set to 0 for the default
 GAMMA = 0.999
 
-SAVEFILE_NAME = f"RNN_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}.pt"
+SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}.pt"
+
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -115,21 +118,21 @@ def pre_process():
     parsed_xml_files = []
 
     print("------------- Loading Training Data -------------")
-    with open(os.path.join(OG_DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
+    with open(os.path.join(PARSING_DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Training Data -------------")
 
     generate_json_data(parsed_xml_files, "train")
 
     print("------------- Loading Dev Data -------------")
-    with open(os.path.join(OG_DATA_DIR, 'dev_parsed_xml_files.pkl'), 'rb') as f:
+    with open(os.path.join(PARSING_DATA_DIR, 'dev_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Dev Data -------------")
 
     generate_json_data(parsed_xml_files, "dev")
 
     print("------------- Loading Test Data -------------")
-    with open(os.path.join(OG_DATA_DIR, 'test_parsed_xml_files.pkl'), 'rb') as f:
+    with open(os.path.join(PARSING_DATA_DIR, 'test_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Test Data -------------")
 
@@ -137,20 +140,8 @@ def pre_process():
 
     print("----------------- FINISHED -----------------")
 
-    return
-            
+    return 
 
-def sample_pre_process():
-    xml_file_paths = Path("../chord-melody-dataset/").glob('**/*.xml')
-    xml_file_paths = [str(path) for path in xml_file_paths]
-
-    parsed_xml_files = []
-    for xml_file_path in xml_file_paths[:50]:
-        s = converter.parse(xml_file_path)
-        parsed_xml_files.append(s)
-    
-    generate_json_data(parsed_xml_files, "sample")
-        
 
 def remove_numbers_from_all_measures(data):
     for measure in data:
@@ -161,70 +152,7 @@ def remove_numbers_from_all_measures(data):
         for i in range(len(chords)):
             chords[i] = re.sub(r'[0-9]', '', chords[i])
     return data
-
-
-def clean_json_vocab_data():
-    print("----------------- Cleaning JSON Data -----------------")
-    data = []
-    with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
-        data = json.load(json_file)
-    
-    for i in range(len(data)):
-        data[i] = re.sub(r'[0-9]', '', data[i])
-    
-    data = list(set(data))
-
-    # save data
-    with open(os.path.join(DATA_DIR, 'chords_vocab.json'), 'w') as outfile:
-        json.dump(data, outfile)
-
-    data = []
-    with open(os.path.join(DATA_DIR, 'pitches_vocab.json')) as json_file:
-        data = json.load(json_file)
-    
-    for i in range(len(data)):
-        data[i] = re.sub(r'[0-9]', '', data[i])
-    
-    data = list(set(data))
-
-    # save data
-    with open(os.path.join(DATA_DIR, 'pitches_vocab.json'), 'w') as outfile:
-        json.dump(data, outfile)
-    
-    print("----------------- Done Cleaning JSON Data -----------------")
-
-
-def clean_json_train_data():
-    print("----------------- Cleaning JSON Data -----------------")
-    data = []
-    with open(os.path.join(DATA_DIR, 'train.json')) as json_file:
-        data = json.load(json_file)
-    
-    data = remove_numbers_from_all_measures(data)
-    # save data
-    with open(os.path.join(DATA_DIR, 'train.json'), 'w') as outfile:
-        json.dump(data, outfile)
-
-    data = []
-    with open(os.path.join(DATA_DIR, 'dev.json')) as json_file:
-        data = json.load(json_file)
-    
-    data = remove_numbers_from_all_measures(data)
-    # save data
-    with open(os.path.join(DATA_DIR, 'dev.json'), 'w') as outfile:
-        json.dump(data, outfile)
-    
-    data = []
-    with open(os.path.join(DATA_DIR, 'test.json')) as json_file:
-        data = json.load(json_file)
-    
-    data = remove_numbers_from_all_measures(data)
-    # save data
-    with open(os.path.join(DATA_DIR, 'test.json'), 'w') as outfile:
-        json.dump(data, outfile)
-    
-    print("----------------- Done Cleaning JSON Data -----------------")
-    
+  
 
 def create_tensors(partition_type):
     print("----------------- Creating Tensors -----------------")
@@ -469,7 +397,7 @@ def evaluate():
     accuracy = train_num_correct / len(chords_tensor)
 
     print(f"accuracy: {accuracy}")
- 
+
 
 if __name__ == "__main__":
 
@@ -490,17 +418,18 @@ if __name__ == "__main__":
     M0MTM = args.mu
     GAMMA = args.ga
 
-    SAVEFILE_NAME = f"RNN_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}.pt"
+    # create a savefile name with the hyperparameters mentioned
+    SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}.pt"
 
     if args.m == 'pre':
-        if not os.path.exists(OG_DATA_DIR):
-            os.makedirs(OG_DATA_DIR)
+        if not os.path.exists(PARSING_DATA_DIR):
+            os.makedirs(PARSING_DATA_DIR)
             data_parsing()
         pre_process()
     elif args.m == 'create':
-        create_tensors('train')
+        # create_tensors('train')
+        # create_tensors('dev')
         create_tensors('test')
-        create_tensors('dev')
     elif args.m == 'train':
         # print the hyperparameters
         print("----------------- Hyperparameters -----------------")
@@ -515,11 +444,3 @@ if __name__ == "__main__":
         train(-1)
     elif args.m == 'eval':
         evaluate()
-    
-    # sample_pre_process() # use this if you want to train model on a smaller sample
-    # pre_process()
-    # clean_json_train_data() # i forgot to remove numbers originally... oops
-    # clean_json_vocab_data() # i forgot to remove numbers originally... oops
-    # create_tensors('test')
-    # total of 112329 measures
-    # evaluate()
