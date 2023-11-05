@@ -1,5 +1,7 @@
 import os
 import torch
+import json
+from models.LSTM_model import MusicRNN, MusicRNNParams
 
 PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
 PARSING_DATA_DIR = os.path.join(PARENT_DIR, 'data')
@@ -47,10 +49,30 @@ def check_data():
 
 def check_model():
     print("----Checking Model----")
-    model = torch.load(os.path.join(DATA_DIR, 'best_model_2.pt'))
-    model.to(DEVICE)
+    chords_vocab = []
+    with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
+        chords_vocab = json.load(json_file)
 
-    print("model cuda: " + str(model.is_cuda))
+    notes_vocab = []
+    with open(os.path.join(DATA_DIR, 'pitches_vocab.json')) as json_file:
+        notes_vocab = json.load(json_file)
+
+    print("----------------- Done Loading Testing Tensors -----------------")
+    print("")
+
+    # create model
+    params = MusicRNNParams(
+        vocab_dim = len(notes_vocab),
+        chord_dim = len(chords_vocab)
+    )
+    
+    model = MusicRNN(params).to(DEVICE)
+
+    # load model
+    model.load_state_dict(torch.load(os.path.join(DATA_DIR, 'best_model_2.pt')))
+
+    # check if model is cuda
+    print("model cuda: " + str(next(model.parameters()).is_cuda))
     print("")
 
 
