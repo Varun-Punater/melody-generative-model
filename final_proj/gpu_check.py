@@ -47,7 +47,8 @@ def check_data():
 
 def check_model():
     print("----Checking Model----")
-    model = torch.load(os.path.join(DATA_DIR, 'best_model_2.pt')).to(DEVICE)
+    model = torch.load(os.path.join(DATA_DIR, 'best_model_2.pt'))
+    model.to(DEVICE)
 
     print("model cuda: " + str(model.is_cuda))
     print("")
