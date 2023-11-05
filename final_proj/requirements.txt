@@ -1,7 +1,9 @@
 music21
 tqdm
 torch
+torchvision
 pydantic
 numpy
 regex
 argparse
+nvidia-smi

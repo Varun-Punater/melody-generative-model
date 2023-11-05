@@ -10,8 +10,6 @@
 #SBATCH --time=1:00:00
 
 module purge
-module load gcc/11.3.0
-module load python/3.9.12
 module spider cuda
 module spider cudnn
 module load nvhpc/22.11
