@@ -47,7 +47,7 @@ def check_data():
 
 def check_model():
     print("----Checking Model----")
-    model = torch.load(os.path.join(DATA_DIR, 'model.pt')).to(DEVICE)
+    model = torch.load(os.path.join(DATA_DIR, 'best_model_2.pt')).to(DEVICE)
 
     print("model cuda: " + str(model.is_cuda))
     print("")
@@ -56,4 +56,4 @@ def check_model():
 if __name__ == "__main__":
     check_gpu()
     check_data()
-    # check_model()
+    check_model()
