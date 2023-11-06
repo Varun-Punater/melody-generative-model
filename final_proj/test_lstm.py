@@ -346,6 +346,8 @@ def train(num_measures: int):
         else:
             count_epochs = 0
         if count_epochs >= PATIENCE_EPOCHS:
+            print("-------------- Stopping: Exceeded Patience Threshold --------------")
+            print("")
             break
         last_integer_accuracy_scaled_percent = int(train_acc * 100 * PATIENCE_GRANULARITY)
         
