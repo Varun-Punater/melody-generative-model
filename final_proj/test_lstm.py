@@ -36,7 +36,7 @@ M0MTM = 0.1 # set to 0 for the default
 DMPNG = 0 # set to 0 for the default
 GAMMA = 0.999
 
-SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}.pt"
+SAVEFILE_NAME = ""
 
 
 def get_measures_from_score(score: stream.Score):
