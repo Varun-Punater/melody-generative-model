@@ -38,6 +38,9 @@ GAMMA = 0.999
 
 SAVEFILE_NAME = ""
 
+PATIENCE_EPOCHS = 15 # number of epochs to wait before stopping training
+PATIENCE_GRANULARITY = 10 # percentage points / granuularity = window size
+
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -337,13 +340,14 @@ def train(num_measures: int):
                 best_checkpoint = model.state_dict()
                 best_epoch = i
         print(f"Epoch {i: < 2}: train_acc={train_acc}, dev_acc={dev_acc}")
-        if last_integer_accuracy_in_percent == int(train_acc * 100):
+
+        if last_integer_accuracy_scaled_percent == int(train_acc * 100 * PATIENCE_GRANULARITY):
             count_epochs += 1
         else:
             count_epochs = 0
-        if count_epochs >= 15:
+        if count_epochs >= PATIENCE_EPOCHS:
             break
-        last_integer_accuracy_in_percent = int(train_acc * 100)
+        last_integer_accuracy_scaled_percent = int(train_acc * 100 * PATIENCE_GRANULARITY)
         
     print("-------------- Done Training --------------")
     print("")
