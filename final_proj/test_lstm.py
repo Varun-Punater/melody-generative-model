@@ -287,7 +287,7 @@ def train(num_measures: int):
     best_epoch = -1
 
     # for early stopping
-    last_integer_accuracy_in_percent = -1
+    last_integer_accuracy_scaled_percent = -1
     count_epochs = 0
 
     print(len(train_dataset))
