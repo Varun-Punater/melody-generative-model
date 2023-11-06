@@ -38,8 +38,8 @@ GAMMA = 0.999
 
 SAVEFILE_NAME = ""
 
-PATIENCE_EPOCHS = 15 # number of epochs to wait before stopping training
-PATIENCE_GRANULARITY = 10 # percentage points / granuularity = window size
+PATIENCE_EPOCHS = int(0.05 * NUM_EPOCHS) # number of epochs to wait before stopping training
+PATIENCE_GRANULARITY = 100 # percentage points / granuularity = window size
 
 
 def get_measures_from_score(score: stream.Score):
