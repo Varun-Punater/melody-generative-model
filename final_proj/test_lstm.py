@@ -271,11 +271,11 @@ def train(num_measures: int):
     loss_function = nn.CrossEntropyLoss()
 
     # optimizer option 1: SGD with or without scheduling, with or without momentum
-    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=M0MTM, dampening=DMPNG)
-    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=GAMMA)
+    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=M0MTM, dampening=DMPNG)
+    # scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=GAMMA)
 
-    # optimizer option 2: Adam with weight decay
-    # optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=0.0001)
+    # optimizer option 2: Adam 
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     
     train_dataset = [(notes_tensor[i], chords_tensor[i]) for i in range(len(chords_tensor))]
 
@@ -324,7 +324,7 @@ def train(num_measures: int):
             chords_tensor_preds = torch.argmax(chords_batch, dim=1)
             train_num_correct += torch.sum(preds == chords_tensor_preds).item()
 
-        scheduler.step() # Update the learning rate
+        # scheduler.step() # Update the learning rate, use only if we're using SGD with scheduling
         
         # Evaluate train and dev accuracy at the end of each epoch
         train_acc = train_num_correct / len(train_dataset)
