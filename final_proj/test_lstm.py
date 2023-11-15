@@ -2,7 +2,7 @@ import os
 import argparse
 from pathlib import Path
 import pickle
-from music21 import *
+from music21 import note, chord, stream
 import math
 from typing import List, Dict, Set
 from tqdm import tqdm
@@ -276,6 +276,9 @@ def train(num_measures: int):
 
     # optimizer option 2: Adam 
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    # optimizer option 3: Adadelta
+    # optimizer = optim.Adadelta(model.parameters(), lr=LEARNING_RATE)
     
     train_dataset = [(notes_tensor[i], chords_tensor[i]) for i in range(len(chords_tensor))]
 
