@@ -1,6 +1,9 @@
 music21
 tqdm
-torch
+torch==1.13
+torchvision==0.14
 pydantic
-pickle
-
+numpy
+regex
+argparse
+nvidia-smi=0.1.3

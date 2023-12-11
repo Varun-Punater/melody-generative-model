@@ -4,8 +4,8 @@ import torch
 
 class MusicRNNParams(BaseModel):
     vocab_dim: int = 23 # size of vocab along with PAD token
-    embedding_dim: int = 23
-    hidden_dim: int = 32
+    embedding_dim: int = 32
+    hidden_dim: int = 256
     num_layers: int = 1
     chord_dim: int = 205 # size of vocab along with PAD token
     chord_per_measure: int = 2
@@ -17,7 +17,7 @@ class SelectItem(nn.Module):
         self.item_index = item_index
 
     def forward(self, inputs):
-        return inputs[self.item_index]
+        return inputs[self.item_index][-1]
 
 class MusicRNN(nn.Module):
     def __init__(self, params: MusicRNNParams):
