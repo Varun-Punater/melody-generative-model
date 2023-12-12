@@ -20,12 +20,19 @@ import time
 from threading import Thread, Lock
 from test import data_parsing
 
-# signaling_mutex = Lock()
-# signal = 0
+NOTE_REPLACEMENTS = {
+    "A-": "G#",
+    "B-": "A#",
+    "C-": "B",
+    "D-": "C#",
+    "E-": "D#",
+    "F-": "E",
+    "G-": "F#",
+}
 
 PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
-PARSING_DATA_DIR = os.path.join(PARENT_DIR, 'data')
-DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
+PARSING_DATA_DIR = os.path.join(PARENT_DIR, 'parsing_data')
+DATA_DIR = os.path.join(PARENT_DIR, 'usable_data')
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -39,8 +46,7 @@ GAMMA = 0.999
 SAVEFILE_NAME = ""
 
 PATIENCE_EPOCHS = int(0.05 * NUM_EPOCHS) # number of epochs to wait before stopping training
-PATIENCE_GRANULARITY = 100 # percentage points / granuularity = window size
-
+PATIENCE_GRANULARITY = 1 # percentage points / granuularity = window size
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -51,7 +57,18 @@ def get_measures_from_score(score: stream.Score):
     return measures
 
 
-def extract_features_from_measure(measure: stream.Measure):
+def replace_flats_in_note_name(note_name: str):
+    if note_name in NOTE_REPLACEMENTS.keys():
+        return NOTE_REPLACEMENTS[note_name]
+    return note_name
+
+def replace_flats_in_chord_name(chord_name: str):
+    for note_name in NOTE_REPLACEMENTS.keys():
+        chord_name = chord_name.replace(note_name, NOTE_REPLACEMENTS[note_name])
+    return chord_name
+
+
+def extract_features_from_measure(measure: stream.Measure, replace_flats: bool):
     notes: List[str] = []
     chords: List[str] = []
     unique_notes = set()
@@ -59,14 +76,19 @@ def extract_features_from_measure(measure: stream.Measure):
     for datapoint in measure:
         if isinstance(datapoint, note.Note):
             number_to_append = int(datapoint.duration.quarterLength * 4)
-
             # remove numbers from chord / note names
             note_name = re.sub(r'[0-9]', '', datapoint.pitch.name)
+            # replace flats with sharps
+            if replace_flats:
+                note_name = replace_flats_in_note_name(note_name)
             unique_notes.add(note_name)
             for i in range(number_to_append):
                 notes.append(note_name)
         elif isinstance(datapoint, chord.Chord):
             chord_name = re.sub(r'[0-9]', '', f"{datapoint.root()} {datapoint.commonName}")
+            # replace flats with sharps
+            if replace_flats:
+                chord_name = replace_flats_in_chord_name(chord_name)
             unique_chords.add(chord_name)
             chords.append(chord_name)
         elif isinstance(datapoint, note.Rest):
@@ -76,7 +98,7 @@ def extract_features_from_measure(measure: stream.Measure):
     return notes, chords, unique_notes, unique_chords
 
 
-def generate_json_data(scores: List[stream.Score], file_name):
+def generate_json_data(scores: List[stream.Score], file_name, replace_flats: bool):
     print("-------------- Generating JSON Data --------------")
 
     pitches_vocab = set()
@@ -92,7 +114,7 @@ def generate_json_data(scores: List[stream.Score], file_name):
         measures = get_measures_from_score(s)
         
         for measure in measures[1:]:
-            notes, chords, unique_notes, unique_chords = extract_features_from_measure(measure)
+            notes, chords, unique_notes, unique_chords = extract_features_from_measure(measure, replace_flats)
             pitches_vocab.update(unique_notes)
             chords_vocab.update(unique_chords)
             json_data.append({
@@ -113,7 +135,7 @@ def generate_json_data(scores: List[stream.Score], file_name):
     print("-------------- Done Generating JSON Data --------------")
 
 
-def pre_process():
+def pre_process(replace_flats: bool = False):
     if not os.path.exists(DATA_DIR):
         os.makedirs(DATA_DIR)
 
@@ -125,21 +147,24 @@ def pre_process():
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Training Data -------------")
 
-    generate_json_data(parsed_xml_files, "train")
+    file_name = "train" if not replace_flats else "train_no_flats"
+    generate_json_data(parsed_xml_files, file_name, replace_flats)
 
     print("------------- Loading Dev Data -------------")
     with open(os.path.join(PARSING_DATA_DIR, 'dev_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Dev Data -------------")
 
-    generate_json_data(parsed_xml_files, "dev")
+    file_name = "dev" if not replace_flats else "dev_no_flats"
+    generate_json_data(parsed_xml_files, file_name, replace_flats)
 
     print("------------- Loading Test Data -------------")
     with open(os.path.join(PARSING_DATA_DIR, 'test_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Test Data -------------")
 
-    generate_json_data(parsed_xml_files, "test")
+    file_name = "test" if not replace_flats else "test_no_flats"
+    generate_json_data(parsed_xml_files, file_name, replace_flats)
 
     print("----------------- FINISHED -----------------")
 
@@ -155,14 +180,68 @@ def remove_numbers_from_all_measures(data):
         for i in range(len(chords)):
             chords[i] = re.sub(r'[0-9]', '', chords[i])
     return data
+
+def remove_flats_from_all_measures(data):
+    for measure in data:
+        notes = measure["notes"]
+        chords = measure["chords"]
+        for i in range(len(notes)):
+            notes[i] = replace_flats_in_note_name(notes[i])
+        for i in range(len(chords)):
+            chords[i] = replace_flats_in_chord_name(chords[i])
+    return data
+
+
+def remove_flats_from_all_data():
+    print("----------------- Removing Flats -----------------")
+
+    data = []
+    with open(os.path.join(DATA_DIR, 'train.json')) as json_file:
+        data = json.load(json_file)
+    data = remove_flats_from_all_measures(data)
+    with open(os.path.join(DATA_DIR, 'train_no_flats.json'), 'w') as outfile:
+        json.dump(data, outfile)
+
+    data = []
+    with open(os.path.join(DATA_DIR, 'dev.json')) as json_file:
+        data = json.load(json_file)
+    data = remove_flats_from_all_measures(data)
+    with open(os.path.join(DATA_DIR, 'dev_no_flats.json'), 'w') as outfile:
+        json.dump(data, outfile)
+
+    data = []
+    with open(os.path.join(DATA_DIR, 'test.json')) as json_file:
+        data = json.load(json_file)
+    data = remove_flats_from_all_measures(data)
+    with open(os.path.join(DATA_DIR, 'test_no_flats.json'), 'w') as outfile:
+        json.dump(data, outfile)
+
+    with open(os.path.join(DATA_DIR, 'pitches_vocab.json')) as json_file:
+        pitches_vocab = json.load(json_file)
+    pitches_vocab = list(set([replace_flats_in_note_name(note) for note in pitches_vocab]))
+    with open(os.path.join(DATA_DIR, 'pitches_vocab_no_flats.json'), 'w') as outfile:
+        json.dump(pitches_vocab, outfile)
+    
+    with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
+        chords_vocab = json.load(json_file)
+    chords_vocab = list(set([replace_flats_in_chord_name(chord) for chord in chords_vocab]))
+    with open(os.path.join(DATA_DIR, 'chords_vocab_no_flats.json'), 'w') as outfile:
+        json.dump(chords_vocab, outfile)
+
+    print("----------------- Done Removing Flats -----------------")
   
 
-def create_tensors(partition_type):
+def create_tensors(partition_type: str, replace_flats: bool = False):
     print("----------------- Creating Tensors -----------------")
 
     data = []
-    with open(os.path.join(DATA_DIR, f'{partition_type}.json')) as json_file:
-        data = json.load(json_file)
+    if replace_flats:
+        with open(os.path.join(DATA_DIR, f'{partition_type}_no_flats.json')) as json_file:
+            data = json.load(json_file)
+    else:
+        with open(os.path.join(DATA_DIR, f'{partition_type}.json')) as json_file:
+            data = json.load(json_file)
+    
 
     # get the vocab from the json file
     chords_vocab = []
@@ -216,19 +295,25 @@ def create_tensors(partition_type):
     notes_tensor = notes_tensor.type(torch.LongTensor)
 
     # we need to save the tensors
-    save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor.pt'))
-    save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor.pt'))
+    if replace_flats:
+        save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor_no_flats.pt'))
+        save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor_no_flats.pt'))
+    else:
+        save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor.pt'))
+        save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor.pt'))
 
 
-def train(num_measures: int):
+def train(num_measures: int, replace_flats: bool = False):
     start_time = time.time()
     # load the training tensors
 
     print("----------------- Loading Training Tensors -----------------")
     print("")
 
-    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt')).to(DEVICE)
-    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt')).to(DEVICE)
+    file_extension = "tensor_no_flats.pt" if replace_flats else "tensor.pt"
+
+    notes_tensor = torch.load(os.path.join(DATA_DIR, f'train_notes_{file_extension}')).to(DEVICE)
+    chords_tensor = torch.load(os.path.join(DATA_DIR, f'train_chords_{file_extension}')).to(DEVICE)
 
     chords_vocab = []
     with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
@@ -243,8 +328,8 @@ def train(num_measures: int):
 
     print("----------------- Loading Dev Tensors -----------------")
     print("")
-    dev_notes_tensor = torch.load(os.path.join(DATA_DIR, 'dev_notes_tensor.pt')).to(DEVICE)
-    dev_chords_tensor = torch.load(os.path.join(DATA_DIR, 'dev_chords_tensor.pt')).to(DEVICE)
+    dev_notes_tensor = torch.load(os.path.join(DATA_DIR, f'dev_notes_{file_extension}')).to(DEVICE)
+    dev_chords_tensor = torch.load(os.path.join(DATA_DIR, f'dev_chords_{file_extension}')).to(DEVICE)
 
     print("----------------- Done Loading Dev Tensors -----------------")
 
@@ -343,7 +428,6 @@ def train(num_measures: int):
                 best_checkpoint = model.state_dict()
                 best_epoch = i
         print(f"Epoch {i: < 2}: train_acc={train_acc}, dev_acc={dev_acc}")
-
         if last_integer_accuracy_scaled_percent == int(train_acc * 100 * PATIENCE_GRANULARITY):
             count_epochs += 1
         else:
@@ -369,12 +453,14 @@ def train(num_measures: int):
     # signaling_mutex.release()
     
 
-def evaluate():
+def evaluate(replace_flats: bool = False):
     print("----------------- Loading Testing Tensors -----------------")
     print("")
 
-    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt')).to(DEVICE)
-    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt')).to(DEVICE)
+    file_extension = "tensor_no_flats.pt" if replace_flats else "tensor.pt"
+
+    notes_tensor = torch.load(os.path.join(DATA_DIR, f'train_notes_{file_extension}')).to(DEVICE)
+    chords_tensor = torch.load(os.path.join(DATA_DIR, f'train_chords_{file_extension}')).to(DEVICE)
 
     chords_vocab = []
     with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
@@ -419,6 +505,7 @@ if __name__ == "__main__":
     parser.add_argument('-L', type=float, default=0.01, help='Learning rate')
     parser.add_argument('-mu', type=float, default=0.0, help='Momentum')
     parser.add_argument('-ga', type=float, default=1, help='Gamma')
+    parser.add_argument('--clean', action='store_true', help='Clean the data by removing flats')
 
     args = parser.parse_args()
 
@@ -427,19 +514,22 @@ if __name__ == "__main__":
     LEARNING_RATE = args.L
     M0MTM = args.mu
     GAMMA = args.ga
+    REPLACE_FLATS = args.clean
 
     # create a savefile name with the hyperparameters mentioned
-    SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}.pt"
+    SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}_clean:{REPLACE_FLATS}.pt"
 
     if args.m == 'pre':
         if not os.path.exists(PARSING_DATA_DIR):
             os.makedirs(PARSING_DATA_DIR)
             data_parsing()
-        pre_process()
+        pre_process(REPLACE_FLATS)
     elif args.m == 'create':
-        # create_tensors('train')
-        # create_tensors('dev')
-        create_tensors('test')
+        if REPLACE_FLATS:
+            remove_flats_from_all_data()
+        create_tensors('train', REPLACE_FLATS)
+        create_tensors('dev', REPLACE_FLATS)
+        create_tensors('test', REPLACE_FLATS)
     elif args.m == 'train':
         # print the hyperparameters
         print("----------------- Hyperparameters -----------------")
@@ -451,6 +541,6 @@ if __name__ == "__main__":
         print(f"Gamma: {GAMMA}")
         print("")
         print("----------------- Starting Training -----------------")
-        train(-1)
+        train(-1, REPLACE_FLATS)
     elif args.m == 'eval':
         evaluate()
