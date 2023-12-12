@@ -2,7 +2,7 @@ import os
 import argparse
 from pathlib import Path
 import pickle
-from music21 import *
+from music21 import note, chord, stream
 import math
 from typing import List, Dict, Set
 from tqdm import tqdm
@@ -24,7 +24,7 @@ from test import data_parsing
 # signal = 0
 
 PARENT_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
-OG_DATA_DIR = os.path.join(PARENT_DIR, 'data')
+PARSING_DATA_DIR = os.path.join(PARENT_DIR, 'data')
 DATA_DIR = os.path.join(PARENT_DIR, 'fake_data')
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,6 +37,10 @@ DMPNG = 0 # set to 0 for the default
 GAMMA = 0.999
 
 SAVEFILE_NAME = ""
+
+PATIENCE_EPOCHS = int(0.05 * NUM_EPOCHS) # number of epochs to wait before stopping training
+PATIENCE_GRANULARITY = 100 # percentage points / granuularity = window size
+
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -117,21 +121,21 @@ def pre_process():
     parsed_xml_files = []
 
     print("------------- Loading Training Data -------------")
-    with open(os.path.join(OG_DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
+    with open(os.path.join(PARSING_DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Training Data -------------")
 
     generate_json_data(parsed_xml_files, "train")
 
     print("------------- Loading Dev Data -------------")
-    with open(os.path.join(OG_DATA_DIR, 'dev_parsed_xml_files.pkl'), 'rb') as f:
+    with open(os.path.join(PARSING_DATA_DIR, 'dev_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Dev Data -------------")
 
     generate_json_data(parsed_xml_files, "dev")
 
     print("------------- Loading Test Data -------------")
-    with open(os.path.join(OG_DATA_DIR, 'test_parsed_xml_files.pkl'), 'rb') as f:
+    with open(os.path.join(PARSING_DATA_DIR, 'test_parsed_xml_files.pkl'), 'rb') as f:
         parsed_xml_files = pickle.load(f)
     print("------------- Done Loading Test Data -------------")
 
@@ -139,20 +143,8 @@ def pre_process():
 
     print("----------------- FINISHED -----------------")
 
-    return
-            
+    return 
 
-def sample_pre_process():
-    xml_file_paths = Path("../chord-melody-dataset/").glob('**/*.xml')
-    xml_file_paths = [str(path) for path in xml_file_paths]
-
-    parsed_xml_files = []
-    for xml_file_path in xml_file_paths[:50]:
-        s = converter.parse(xml_file_path)
-        parsed_xml_files.append(s)
-    
-    generate_json_data(parsed_xml_files, "sample")
-        
 
 def remove_numbers_from_all_measures(data):
     for measure in data:
@@ -163,70 +155,7 @@ def remove_numbers_from_all_measures(data):
         for i in range(len(chords)):
             chords[i] = re.sub(r'[0-9]', '', chords[i])
     return data
-
-
-def clean_json_vocab_data():
-    print("----------------- Cleaning JSON Data -----------------")
-    data = []
-    with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
-        data = json.load(json_file)
-    
-    for i in range(len(data)):
-        data[i] = re.sub(r'[0-9]', '', data[i])
-    
-    data = list(set(data))
-
-    # save data
-    with open(os.path.join(DATA_DIR, 'chords_vocab.json'), 'w') as outfile:
-        json.dump(data, outfile)
-
-    data = []
-    with open(os.path.join(DATA_DIR, 'pitches_vocab.json')) as json_file:
-        data = json.load(json_file)
-    
-    for i in range(len(data)):
-        data[i] = re.sub(r'[0-9]', '', data[i])
-    
-    data = list(set(data))
-
-    # save data
-    with open(os.path.join(DATA_DIR, 'pitches_vocab.json'), 'w') as outfile:
-        json.dump(data, outfile)
-    
-    print("----------------- Done Cleaning JSON Data -----------------")
-
-
-def clean_json_train_data():
-    print("----------------- Cleaning JSON Data -----------------")
-    data = []
-    with open(os.path.join(DATA_DIR, 'train.json')) as json_file:
-        data = json.load(json_file)
-    
-    data = remove_numbers_from_all_measures(data)
-    # save data
-    with open(os.path.join(DATA_DIR, 'train.json'), 'w') as outfile:
-        json.dump(data, outfile)
-
-    data = []
-    with open(os.path.join(DATA_DIR, 'dev.json')) as json_file:
-        data = json.load(json_file)
-    
-    data = remove_numbers_from_all_measures(data)
-    # save data
-    with open(os.path.join(DATA_DIR, 'dev.json'), 'w') as outfile:
-        json.dump(data, outfile)
-    
-    data = []
-    with open(os.path.join(DATA_DIR, 'test.json')) as json_file:
-        data = json.load(json_file)
-    
-    data = remove_numbers_from_all_measures(data)
-    # save data
-    with open(os.path.join(DATA_DIR, 'test.json'), 'w') as outfile:
-        json.dump(data, outfile)
-    
-    print("----------------- Done Cleaning JSON Data -----------------")
-    
+  
 
 def create_tensors(partition_type):
     print("----------------- Creating Tensors -----------------")
@@ -342,11 +271,14 @@ def train(num_measures: int):
     loss_function = nn.CrossEntropyLoss()
 
     # optimizer option 1: SGD with or without scheduling, with or without momentum
-    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=M0MTM, dampening=DMPNG)
-    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=GAMMA)
+    # optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=M0MTM, dampening=DMPNG)
+    # scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=GAMMA)
 
-    # optimizer option 2: Adam with weight decay
-    # optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=0.0001)
+    # optimizer option 2: Adam 
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+
+    # optimizer option 3: Adadelta
+    # optimizer = optim.Adadelta(model.parameters(), lr=LEARNING_RATE)
     
     train_dataset = [(notes_tensor[i], chords_tensor[i]) for i in range(len(chords_tensor))]
 
@@ -358,7 +290,7 @@ def train(num_measures: int):
     best_epoch = -1
 
     # for early stopping
-    last_integer_accuracy_in_percent = -1
+    last_integer_accuracy_scaled_percent = -1
     count_epochs = 0
 
     print(len(train_dataset))
@@ -395,7 +327,7 @@ def train(num_measures: int):
             chords_tensor_preds = torch.argmax(chords_batch, dim=1)
             train_num_correct += torch.sum(preds == chords_tensor_preds).item()
 
-        scheduler.step() # Update the learning rate
+        # scheduler.step() # Update the learning rate, use only if we're using SGD with scheduling
         
         # Evaluate train and dev accuracy at the end of each epoch
         train_acc = train_num_correct / len(train_dataset)
@@ -411,13 +343,16 @@ def train(num_measures: int):
                 best_checkpoint = model.state_dict()
                 best_epoch = i
         print(f"Epoch {i: < 2}: train_acc={train_acc}, dev_acc={dev_acc}")
-        if last_integer_accuracy_in_percent == int(train_acc * 100):
+
+        if last_integer_accuracy_scaled_percent == int(train_acc * 100 * PATIENCE_GRANULARITY):
             count_epochs += 1
         else:
             count_epochs = 0
-        if count_epochs >= 15:
+        if count_epochs >= PATIENCE_EPOCHS:
+            print("-------------- Stopping: Exceeded Patience Threshold --------------")
+            print("")
             break
-        last_integer_accuracy_in_percent = int(train_acc * 100)
+        last_integer_accuracy_scaled_percent = int(train_acc * 100 * PATIENCE_GRANULARITY)
         
     print("-------------- Done Training --------------")
     print("")
@@ -457,6 +392,7 @@ def evaluate():
         vocab_dim = len(notes_vocab),
         chord_dim = len(chords_vocab)
     )
+    
     model = MusicRNN(params).to(DEVICE)
 
     # load model
@@ -471,15 +407,15 @@ def evaluate():
     accuracy = train_num_correct / len(chords_tensor)
 
     print(f"accuracy: {accuracy}")
- 
+
 
 if __name__ == "__main__":
 
     # we need to add a way to use comand line options
     parser = argparse.ArgumentParser(description='Hyperparameters and mode for the model.')
     parser.add_argument('-m', type=str, required=True, choices=['pre', 'create', 'train', 'eval'], help='Mode to run')
-    parser.add_argument('-E', type=int, default=1000, help='Number of epochs')
-    parser.add_argument('-B', type=int, default=100, help='Batch size')
+    parser.add_argument('-E', type=int, default=500, help='Number of epochs')
+    parser.add_argument('-B', type=int, default=64, help='Batch size')
     parser.add_argument('-L', type=float, default=0.01, help='Learning rate')
     parser.add_argument('-mu', type=float, default=0.0, help='Momentum')
     parser.add_argument('-ga', type=float, default=1, help='Gamma')
@@ -492,17 +428,18 @@ if __name__ == "__main__":
     M0MTM = args.mu
     GAMMA = args.ga
 
+    # create a savefile name with the hyperparameters mentioned
     SAVEFILE_NAME = f"RNN_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}.pt"
 
     if args.m == 'pre':
-        if not os.path.exists(OG_DATA_DIR):
-            os.makedirs(OG_DATA_DIR)
+        if not os.path.exists(PARSING_DATA_DIR):
+            os.makedirs(PARSING_DATA_DIR)
             data_parsing()
         pre_process()
     elif args.m == 'create':
-        create_tensors('train')
+        # create_tensors('train')
+        # create_tensors('dev')
         create_tensors('test')
-        create_tensors('dev')
     elif args.m == 'train':
         # print the hyperparameters
         print("----------------- Hyperparameters -----------------")
@@ -517,11 +454,3 @@ if __name__ == "__main__":
         train(-1)
     elif args.m == 'eval':
         evaluate()
-    
-    # sample_pre_process() # use this if you want to train model on a smaller sample
-    # pre_process()
-    # clean_json_train_data() # i forgot to remove numbers originally... oops
-    # clean_json_vocab_data() # i forgot to remove numbers originally... oops
-    # create_tensors('test')
-    # total of 112329 measures
-    # evaluate()

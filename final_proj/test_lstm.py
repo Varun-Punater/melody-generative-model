@@ -414,8 +414,8 @@ if __name__ == "__main__":
     # we need to add a way to use comand line options
     parser = argparse.ArgumentParser(description='Hyperparameters and mode for the model.')
     parser.add_argument('-m', type=str, required=True, choices=['pre', 'create', 'train', 'eval'], help='Mode to run')
-    parser.add_argument('-E', type=int, default=1000, help='Number of epochs')
-    parser.add_argument('-B', type=int, default=100, help='Batch size')
+    parser.add_argument('-E', type=int, default=500, help='Number of epochs')
+    parser.add_argument('-B', type=int, default=64, help='Batch size')
     parser.add_argument('-L', type=float, default=0.01, help='Learning rate')
     parser.add_argument('-mu', type=float, default=0.0, help='Momentum')
     parser.add_argument('-ga', type=float, default=1, help='Gamma')
