@@ -38,8 +38,7 @@ class MusicRNN(nn.Module):
             nn.Linear(
                 in_features=params.hidden_dim,
                 out_features=params.chord_dim
-            ), 
-            nn.Softmax(dim=1)
+            )
         )
 
     def forward(self, x):
