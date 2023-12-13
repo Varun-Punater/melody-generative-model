@@ -1,9 +1,9 @@
 # MusicRNN
 
-Note: Install requirements.txt before proceeding with the following.
+Note: Install requirements.txt before proceeding with the following. We require python version 3.9.18, so specify that when creating the python environment. 
 
 ## Instructions to Run the Programs ON TEST DATA 
-First cd into the final_proj/ folder
+First cd into the final_proj/ folder. This contains all the code that you require for the execution for the various models.
 
 ### To Run Naive Bayes
 Run the following command:
@@ -38,3 +38,6 @@ Run the following command:
 ```
 python3 test_transformer.py
 ```
+
+### General Advice
+The RNN, LSTM, and Transformer models are set up to use CUDA and benefit greatly from using it.
