@@ -46,7 +46,7 @@ GAMMA = 0.999
 SAVEFILE_NAME = ""
 
 PATIENCE_EPOCHS = int(0.05 * NUM_EPOCHS) # number of epochs to wait before stopping training
-PATIENCE_GRANULARITY = 1 # percentage points / granuularity = window size
+PATIENCE_GRANULARITY = 10 # percentage points / granuularity = window size
 
 def get_measures_from_score(score: stream.Score):
     part = score.parts[0]
@@ -231,7 +231,7 @@ def remove_flats_from_all_data():
     print("----------------- Done Removing Flats -----------------")
   
 
-def create_tensors(partition_type: str, replace_flats: bool = False):
+def create_tensors(partition_type: str, replace_flats: bool = False, downbeat_only: bool = False):
     print("----------------- Creating Tensors -----------------")
 
     data = []
@@ -281,7 +281,9 @@ def create_tensors(partition_type: str, replace_flats: bool = False):
         
         # we need to convert the notes and chords to indices
         curr_notes_tensor = []
-        for note in notes:
+        for index, note in enumerate(notes):
+            if downbeat_only and index % 4 != 0:
+                continue    
             curr_notes_tensor.append(notes_vocab.index(note))
         curr_notes_tensor = tensor(curr_notes_tensor)
 
@@ -296,21 +298,36 @@ def create_tensors(partition_type: str, replace_flats: bool = False):
 
     # we need to save the tensors
     if replace_flats:
-        save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor_no_flats.pt'))
-        save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor_no_flats.pt'))
+        if downbeat_only:
+            save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor_no_flats_downbeat_only.pt'))
+            save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor_no_flats_downbeat_only.pt'))
+        else:
+            save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor_no_flats.pt'))
+            save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor_no_flats.pt'))
     else:
-        save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor.pt'))
-        save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor.pt'))
+        if downbeat_only:
+            save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor_downbeat_only.pt'))
+            save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor_downbeat_only.pt'))
+        else:
+            save(notes_tensor, os.path.join(DATA_DIR, f'{partition_type}_notes_tensor.pt'))
+            save(chords_tensor, os.path.join(DATA_DIR, f'{partition_type}_chords_tensor.pt'))
 
 
-def train(num_measures: int, replace_flats: bool = False):
+def train(num_measures: int, replace_flats: bool = False, downbeat_only: bool = False):
     start_time = time.time()
     # load the training tensors
 
     print("----------------- Loading Training Tensors -----------------")
     print("")
 
-    file_extension = "tensor_no_flats.pt" if replace_flats else "tensor.pt"
+    if replace_flats and downbeat_only:
+        file_extension = "tensor_no_flats_downbeat_only.pt"
+    elif replace_flats:
+        file_extension = "tensor_no_flats.pt"
+    elif downbeat_only:
+        file_extension = "tensor_downbeat_only.pt"
+    else:
+        file_extension = "tensor.pt"
 
     notes_tensor = torch.load(os.path.join(DATA_DIR, f'train_notes_{file_extension}')).to(DEVICE)
     chords_tensor = torch.load(os.path.join(DATA_DIR, f'train_chords_{file_extension}')).to(DEVICE)
@@ -453,14 +470,21 @@ def train(num_measures: int, replace_flats: bool = False):
     # signaling_mutex.release()
     
 
-def evaluate(replace_flats: bool = False):
+def evaluate(replace_flats: bool = False, downbeat_only: bool = False):
     print("----------------- Loading Testing Tensors -----------------")
     print("")
 
-    file_extension = "tensor_no_flats.pt" if replace_flats else "tensor.pt"
+    if replace_flats and downbeat_only:
+        file_extension = "tensor_no_flats_downbeat_only.pt"
+    elif replace_flats:
+        file_extension = "tensor_no_flats.pt"
+    elif downbeat_only:
+        file_extension = "tensor_downbeat_only.pt"
+    else:
+        file_extension = "tensor.pt"
 
-    notes_tensor = torch.load(os.path.join(DATA_DIR, f'train_notes_{file_extension}')).to(DEVICE)
-    chords_tensor = torch.load(os.path.join(DATA_DIR, f'train_chords_{file_extension}')).to(DEVICE)
+    notes_tensor = torch.load(os.path.join(DATA_DIR, f'test_notes_{file_extension}')).to(DEVICE)
+    chords_tensor = torch.load(os.path.join(DATA_DIR, f'test_chords_{file_extension}')).to(DEVICE)
 
     chords_vocab = []
     with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
@@ -506,6 +530,7 @@ if __name__ == "__main__":
     parser.add_argument('-mu', type=float, default=0.0, help='Momentum')
     parser.add_argument('-ga', type=float, default=1, help='Gamma')
     parser.add_argument('--clean', action='store_true', help='Clean the data by removing flats')
+    parser.add_argument('--downbeat', action='store_true', help='Use downbeats only instead of 16th notes')
 
     args = parser.parse_args()
 
@@ -515,9 +540,13 @@ if __name__ == "__main__":
     M0MTM = args.mu
     GAMMA = args.ga
     REPLACE_FLATS = args.clean
+    DOWNBEAT_ONLY = args.downbeat
 
     # create a savefile name with the hyperparameters mentioned
-    SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}_clean:{REPLACE_FLATS}.pt"
+    SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}_clean:{REPLACE_FLATS}_downbeat:{DOWNBEAT_ONLY}.pt"
+    print(SAVEFILE_NAME)
+    # SAVEFILE_NAME = f"LSTM_model_e:{NUM_EPOCHS}_b:{BATCH_SIZE}_l:{LEARNING_RATE}_m:{M0MTM}_g:{GAMMA}_clean:{REPLACE_FLATS}.pt"
+    
 
     if args.m == 'pre':
         if not os.path.exists(PARSING_DATA_DIR):
@@ -527,9 +556,9 @@ if __name__ == "__main__":
     elif args.m == 'create':
         if REPLACE_FLATS:
             remove_flats_from_all_data()
-        create_tensors('train', REPLACE_FLATS)
-        create_tensors('dev', REPLACE_FLATS)
-        create_tensors('test', REPLACE_FLATS)
+        create_tensors('train', REPLACE_FLATS, DOWNBEAT_ONLY)
+        create_tensors('dev', REPLACE_FLATS, DOWNBEAT_ONLY)
+        create_tensors('test', REPLACE_FLATS, DOWNBEAT_ONLY)
     elif args.m == 'train':
         # print the hyperparameters
         print("----------------- Hyperparameters -----------------")

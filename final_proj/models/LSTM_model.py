@@ -3,11 +3,11 @@ from torch import nn
 import torch
 
 class MusicRNNParams(BaseModel):
-    vocab_dim: int = 23 # size of vocab along with PAD token
+    vocab_dim: int = 16 # size of vocab along with PAD token
     embedding_dim: int = 32
     hidden_dim: int = 256
     num_layers: int = 1
-    chord_dim: int = 205 # size of vocab along with PAD token
+    chord_dim: int = 148 # size of vocab along with PAD token
     chord_per_measure: int = 2
 
 class SelectItem(nn.Module):
@@ -39,8 +39,7 @@ class MusicRNN(nn.Module):
             nn.Linear(
                 in_features=params.hidden_dim,
                 out_features=params.chord_dim
-            ), 
-            nn.Softmax(dim=1)
+            )
         )
 
     def forward(self, x):
