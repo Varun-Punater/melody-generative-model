@@ -19,6 +19,8 @@ Run the following command:
 python test_rnn -m [mode= 'pre', 'create', 'train', 'eval'] -E [epochs] -B [batch size] -L [l.r.]
 ```
 
+Note: If you are working with the most recent version of the code and want to train and test the model, you only need to run train and eval. The preprocessing and tensor creation is already done.
+
 ### To Run LSTM
 Run the following command:
 ```
@@ -29,6 +31,7 @@ Only include the flags if you want to use the modified datasets for the followin
 --clean : [for the dataset with the simplified notes]
 --downbeat : [for the dataset wth only downbeats]
 ```
+Note: If you are working with the most recent version of the code and want to train and test the model, you only need to run train and eval. The preprocessing and tensor creation is already done.
 
 ### To Run Transformer
 Run the following command:
