@@ -20,3 +20,10 @@ Run the following command:
 Run the following command:
 ```
 python
+
+
+### To Run Transformer
+Run the following command:
+```
+python3 test_transformer.py
+```
