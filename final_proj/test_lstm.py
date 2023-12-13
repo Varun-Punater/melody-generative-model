@@ -459,8 +459,8 @@ def evaluate(replace_flats: bool = False):
 
     file_extension = "tensor_no_flats.pt" if replace_flats else "tensor.pt"
 
-    notes_tensor = torch.load(os.path.join(DATA_DIR, f'train_notes_{file_extension}')).to(DEVICE)
-    chords_tensor = torch.load(os.path.join(DATA_DIR, f'train_chords_{file_extension}')).to(DEVICE)
+    notes_tensor = torch.load(os.path.join(DATA_DIR, f'test_notes_{file_extension}')).to(DEVICE)
+    chords_tensor = torch.load(os.path.join(DATA_DIR, f'test_chords_{file_extension}')).to(DEVICE)
 
     chords_vocab = []
     with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:

@@ -373,8 +373,8 @@ def evaluate():
     print("----------------- Loading Testing Tensors -----------------")
     print("")
 
-    notes_tensor = torch.load(os.path.join(DATA_DIR, 'train_notes_tensor.pt')).to(DEVICE)
-    chords_tensor = torch.load(os.path.join(DATA_DIR, 'train_chords_tensor.pt')).to(DEVICE)
+    notes_tensor = torch.load(os.path.join(DATA_DIR, 'test_notes_tensor.pt')).to(DEVICE)
+    chords_tensor = torch.load(os.path.join(DATA_DIR, 'test_chords_tensor.pt')).to(DEVICE)
 
     chords_vocab = []
     with open(os.path.join(DATA_DIR, 'chords_vocab.json')) as json_file:
