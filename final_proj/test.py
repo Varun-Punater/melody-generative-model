@@ -122,27 +122,27 @@ if __name__ == "__main__":
     # s = converter.parse(xml_file_path_1)
     # s2 = converter.parse(xml_file_path_2)
    
+    data_parsing()
    
-   
-    # print("loading pickle files for training")
-    # with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
-    #     parsed_xml_files = pickle.load(f)
-    # print("DONE LOADING PICKLE FILES FOR TRAINING")
-    # nb = NaiveBayes(parsed_xml_files, lambda_=1)
-    # print("BEGIN TRAINING")
-    # nb.train()
-    # print("DONE TRAINING")
+    print("loading pickle files for training")
+    with open(os.path.join(DATA_DIR, 'training_parsed_xml_files.pkl'), 'rb') as f:
+        parsed_xml_files = pickle.load(f)
+    print("DONE LOADING PICKLE FILES FOR TRAINING")
+    nb = NaiveBayes(parsed_xml_files, lambda_=100)
+    print("BEGIN TRAINING")
+    nb.train()
+    print("DONE TRAINING")
     # pprint.pprint(nb.chord_note_frequencies)
     # pprint.pprint(nb.chord_frequencies)
 
-    # with open(os.path.join(DATA_DIR, 'chord_note_frequencies_data.json'), 'w') as outfile:
-    #     json.dump(nb.chord_note_frequencies, outfile)
+    with open(os.path.join(DATA_DIR, 'chord_note_frequencies_data.json'), 'w') as outfile:
+        json.dump(nb.chord_note_frequencies, outfile)
     
-    # with open(os.path.join(DATA_DIR, 'chord_frequencies_data.json'), 'w') as outfile:
-    #     json.dump(nb.chord_frequencies, outfile)
+    with open(os.path.join(DATA_DIR, 'chord_frequencies_data.json'), 'w') as outfile:
+        json.dump(nb.chord_frequencies, outfile)
 
-    # with open(os.path.join(DATA_DIR, 'unique_notes_data.json'), 'w') as outfile:
-    #     json.dump(list(nb.unique_notes), outfile)
+    with open(os.path.join(DATA_DIR, 'unique_notes_data.json'), 'w') as outfile:
+        json.dump(list(nb.unique_notes), outfile)
 
     # print("done")
 
@@ -209,6 +209,7 @@ if __name__ == "__main__":
     print("DONE LOADING PICKLE FILES FOR TESTING")
     print("BEGIN EVALUATION")
     test_accuracy = nb.evaluate_on_dataset(test_parsed_xml_files)
+    print(test_accuracy)
     
     
     # plot_sweep([x for x in lambda_values], [1-x for x in train_accuracies], [1-x for x in dev_accuracies])
