@@ -1,8 +1,11 @@
 # MusicRNN
 
-Note: Install requirements.txt before proceeding with the following. We require python version 3.9.18, so specify that when creating the python environment. 
+Note: The final project document (Pred_Chord.pdf) contains an overview of the findings.
 
 ## Instructions to Run the Programs ON TEST DATA 
+
+Note: Install requirements.txt before proceeding with the following. We require python version 3.9.18, so specify that when creating the python environment. 
+
 First cd into the final_proj/ folder. This contains all the code that you require for the execution for the various models.
 
 ### To Run Naive Bayes
